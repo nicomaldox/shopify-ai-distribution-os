@@ -1,0 +1,119 @@
+# ==============================================================================
+# Security & Secret Management (Strict Zero-Leakage Policy)
+# ==============================================================================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+*.pem
+*.key
+*.cert
+*.crt
+*.pfx
+*.p12
+*.secret
+*.credentials
+credentials.json
+token.json
+client_secret*.json
+id_rsa*
+id_ed25519*
+
+# ==============================================================================
+# Internal Development Specs & SDD Artifacts (Excluded from Public Repo)
+# ==============================================================================
+specs/
+report.md
+SKILL.md
+AGENTS.md
+.markdown-collab/
+*.tmp
+*.bak
+
+# ==============================================================================
+# Python Runtime & Dependencies
+# ==============================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+.mypy_cache/
+.ruff_cache/
+venv/
+.venv/
+ENV/
+env/
+
+# ==============================================================================
+# Node.js & Frontend Builds
+# ==============================================================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.pnpm-store/
+.next/
+out/
+.nuxt/
+.vuepress/dist
+.serverless/
+.fusebox/
+.dynamodb/
+
+# ==============================================================================
+# Database & Cache Local Volumes
+# ==============================================================================
+*.sqlite
+*.sqlite3
+*.db
+*.rdb
+postgres_data/
+valkey_data/
+redis_data/
+uploads/
+generated_media/
+temp_media/
+
+# ==============================================================================
+# OS & IDE Metadata
+# ==============================================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
