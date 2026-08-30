@@ -83,8 +83,8 @@ CREATE TABLE IF NOT EXISTS order_items (
 -- 6. Commission Ledger (Append-Only)
 CREATE TABLE IF NOT EXISTS commission_ledger (
     ledger_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    creator_id UUID REFERENCES creators(creator_id) ON DELETE CASCADE,
-    order_id VARCHAR(255) REFERENCES orders(order_id) ON DELETE CASCADE,
+    creator_id UUID REFERENCES creators(creator_id) ON DELETE RESTRICT,
+    order_id VARCHAR(255) REFERENCES orders(order_id) ON DELETE RESTRICT,
     transaction_type VARCHAR(50) NOT NULL, -- 'EARN', 'REVERSAL', 'ADJUSTMENT'
     amount NUMERIC(18,4) NOT NULL,
     status VARCHAR(50) DEFAULT 'PENDING', -- 'PENDING', 'HELD', 'CLEARED'

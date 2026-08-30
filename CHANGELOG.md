@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased] - 2026-08-28
 
 ### Added
+- **Day 6: Cloud AI Video & Audio Rendering Factory**
+  - Integrated Fal.ai / Wan2.2 API for 9:16 vertical video generation.
+  - Integrated OpenAI TTS for synchronized voiceover.
+  - Built `media_assembler.py` using FFmpeg with `drawtext` filter for text overlay hooks.
+- **Day 7: Creator Studio UI & Admin Console**
+  - Scaffolded Next.js App Router applications with Vanilla CSS glassmorphism.
+  - Built live Earnings and Audit Ledger views powered by real-time PostgreSQL data.
+  - Created frontend API routers to fetch Postgres data directly to React Server Components.
+  - Exported n8n workflows orchestrating Webhook -> AI Director -> Video Factory.
+- **Day 7 Audit Remediation**
+  - Hardened PostgreSQL `commission_ledger` with `ON DELETE RESTRICT` cascade protection.
+  - Wired frontends directly to backend APIs, replacing static mock data with real-time API integrations.
 - **Day 2: Webhook Security & Idempotency**
   - Implemented constant-time HMAC-SHA256 Shopify webhook verification (`security.py`).
   - Added PostgreSQL `webhook_inbox` for deduplication and replay attack prevention (`webhooks.py`).

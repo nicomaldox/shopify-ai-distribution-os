@@ -1,0 +1,86 @@
+{
+  "name": "Distribution OS - Phase 1 PoC",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "shopify-webhook",
+        "options": {}
+      },
+      "name": "Shopify Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://core-api:8000/ai/generate-script",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "product_title",
+              "value": "={{$json[\"body\"][\"title\"]}}"
+            },
+            {
+              "name": "product_price",
+              "value": "={{$json[\"body\"][\"variants\"][0][\"price\"]}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Call AI Director",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 2,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://core-api:8000/video-jobs/render",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "director_spec",
+              "value": "={{$json[\"body\"]}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Trigger Video Factory",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 2,
+      "position": [650, 300]
+    }
+  ],
+  "connections": {
+    "Shopify Webhook": {
+      "main": [
+        [
+          {
+            "node": "Call AI Director",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call AI Director": {
+      "main": [
+        [
+          {
+            "node": "Trigger Video Factory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {}
+}

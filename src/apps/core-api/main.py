@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 import uvicorn
-from routers import webhooks, redirects, ai
+from routers import webhooks, redirects, ai, video_jobs, frontend_api
 
 app = FastAPI(
     title="Shopify AI KOL Distribution OS - Core API",
@@ -11,6 +11,8 @@ app = FastAPI(
 app.include_router(webhooks.router)
 app.include_router(redirects.router)
 app.include_router(ai.router)
+app.include_router(video_jobs.router)
+app.include_router(frontend_api.router)
 
 @app.get("/health")
 async def health_check():

@@ -34,6 +34,46 @@ services:
       timeout: 5s
       retries: 5
 
+  core-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: distribution-os-core-api
+    ports:
+      - "8000:8000"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-distribution_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-distribution_password}
+      - POSTGRES_DB=${POSTGRES_DB:-distribution_db}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - FAL_KEY=${FAL_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    restart: unless-stopped
+
+  creator-web:
+    build:
+      context: ./src/apps/creator-web
+      dockerfile: Dockerfile
+    container_name: distribution-os-creator-web
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+  admin-web:
+    build:
+      context: ./src/apps/admin-web
+      dockerfile: Dockerfile
+    container_name: distribution-os-admin-web
+    ports:
+      - "3001:3001"
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   valkey_data:
