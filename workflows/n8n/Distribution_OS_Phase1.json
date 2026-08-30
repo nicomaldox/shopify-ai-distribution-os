@@ -15,7 +15,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://core-api:8000/ai/generate-script",
+        "url": "http://181.215.135.249:8080/ai/generate-script",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
