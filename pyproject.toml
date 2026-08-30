@@ -8,7 +8,5 @@ dependencies = []
 [tool.uv.workspace]
 members = [
     "src/apps/core-api",
-    "src/packages/db",
-    "src/packages/ai-director",
     "src/packages/video-factory"
 ]
