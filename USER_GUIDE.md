@@ -33,11 +33,11 @@ To allow the system to attribute sales and refunds to creators, you must configu
 3. Create the **Order creation** (or Order payment) webhook:
    - **Event:** `Order payment`
    - **Format:** `JSON`
-   - **URL:** `http://181.215.135.249:8080/webhooks/shopify/orders/paid`
+   - **URL:** `http://181.215.135.249:8080/webhooks/shopify/`
 4. Create the **Refund creation** webhook:
    - **Event:** `Refund create`
    - **Format:** `JSON`
-   - **URL:** `http://181.215.135.249:8080/webhooks/shopify/refunds/create`
+   - **URL:** `http://181.215.135.249:8080/webhooks/shopify/`
 
 ---
 
