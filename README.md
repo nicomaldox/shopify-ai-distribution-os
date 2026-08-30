@@ -36,6 +36,7 @@ flowchart LR
 ✅ **Day 5:** AI Director Agent (LangGraph + OpenAI GPT-4o) & Telemetry
 ✅ **Day 6:** Cloud AI Video & Audio Rendering Factory
 ✅ **Day 7:** Creator Studio & Admin Console
+✅ **Day 8:** Hostinger VPS Deployment & Live Demo Presentation
 
 ---
 
@@ -149,11 +150,11 @@ flowchart TB
    # Copy the generated https://*.trycloudflare.com URL to your Shopify Webhook settings
    ```
 
-4. **Access the Applications:**
-   * **Core API & Webhooks:** `http://localhost:8000`
-   * **Creator Studio Portal:** `http://localhost:3000`
-   * **Admin Console:** `http://localhost:3001`
-   * **API Documentation:** `http://localhost:8000/docs`
+4. **Access the Applications (VPS Live):**
+   * **Core API & Webhooks:** `http://181.215.135.249:8080`
+   * **Creator Studio Portal:** `http://181.215.135.249:3000`
+   * **Admin Console:** `http://181.215.135.249:3001`
+   * **API Documentation:** `http://181.215.135.249:8080/docs`
 
 ---
 
