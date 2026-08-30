@@ -20,12 +20,12 @@
         "bodyParameters": {
           "parameters": [
             {
-              "name": "product_title",
-              "value": "={{$json[\"body\"][\"title\"]}}"
+              "name": "product_id",
+              "value": "prod_999999999"
             },
             {
-              "name": "product_price",
-              "value": "={{$json[\"body\"][\"variants\"][0][\"price\"]}}"
+              "name": "creator_id",
+              "value": "550e8400-e29b-41d4-a716-446655440000"
             }
           ]
         },
