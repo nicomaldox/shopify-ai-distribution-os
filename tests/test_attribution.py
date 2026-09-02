@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 import sys
 import os
 
@@ -11,8 +11,9 @@ from dependencies.security import generate_signed_referral_token
 async def test_attribution_priority_1_coupon():
     """Test that Coupon Code takes highest priority."""
     mock_db = AsyncMock()
-    # Mock the DB returning creator_id 'creator-123' for the coupon lookup
-    mock_db.execute.return_value.scalar.return_value = "creator-123"
+    mock_res = MagicMock()
+    mock_res.scalar.return_value = "creator-123"
+    mock_db.execute.return_value = mock_res
     
     order_payload = {
         "discount_codes": [{"code": "ALEX10"}],
@@ -28,7 +29,9 @@ async def test_attribution_priority_1_coupon():
 async def test_attribution_priority_2_signed_link():
     """Test that Signed Token takes priority if no coupon."""
     mock_db = AsyncMock()
-    mock_db.execute.return_value.scalar.return_value = "creator-456"
+    mock_res = MagicMock()
+    mock_res.scalar.return_value = "creator-456"
+    mock_db.execute.return_value = mock_res
     
     # Generate valid signed token for slug 'sam'
     valid_token = generate_signed_referral_token("sam")
@@ -46,7 +49,9 @@ async def test_attribution_priority_2_signed_link():
 async def test_attribution_priority_3_last_click():
     """Test Last Click fallback using hashed IP."""
     mock_db = AsyncMock()
-    mock_db.execute.return_value.scalar.return_value = "creator-789"
+    mock_res = MagicMock()
+    mock_res.scalar.return_value = "creator-789"
+    mock_db.execute.return_value = mock_res
     
     order_payload = {
         "browser_ip": "192.168.1.1"

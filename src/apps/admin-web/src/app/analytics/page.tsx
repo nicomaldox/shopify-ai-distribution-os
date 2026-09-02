@@ -1,6 +1,7 @@
 async function getMetrics() {
   try {
-    const res = await fetch('http://core-api:8000/frontend/ai-metrics', { cache: 'no-store' });
+    const apiBase = process.env.API_BASE_URL || 'http://localhost:8000'
+    const res = await fetch(`${apiBase}/frontend/ai-metrics`, { cache: 'no-store' });
     if (!res.ok) return { metrics: { total_tokens: 0, cost_usd: 0, accuracy: 1.0 }, logs: [] };
     return res.json();
   } catch (e) {

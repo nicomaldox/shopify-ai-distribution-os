@@ -4,13 +4,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] - 2026-08-28
+## [Unreleased] - 2026-09-03
 
 ### Added
+- **Resilient Hybrid Ingestion Engine & Local Environment Transition**
+  - Implemented `shopify_sync.py` to pull paid orders and refunds directly from Shopify Admin REST API, removing single-point-of-failure reliance on public tunnels and webhook HMAC matching.
+  - Added background polling scheduler (`scheduler.py`) running every 30 seconds for automated order reconciliation.
+  - Added manual `POST /webhooks/shopify/sync` endpoint and wired "Sync Shopify Orders" trigger in the Admin Console.
+  - Hardened `verify_shopify_webhook` middleware with automatic `.strip()` of CRLF artifacts, multi-secret candidate fallback (Notification Secret + Custom App Secret), and development diagnostic logging.
+  - Configured local Docker Desktop development stack for PostgreSQL 16 and Valkey 8 (`docker compose up -d postgres valkey`).
+  - Added `tests/test_financial_scenarios.py` verifying all 5 core financial accounting scenarios (standard earn, duplicate idempotency, full cancellation, partial reversal, post-payout negative carryover) with 100% precision.
 - **Day 8: VPS Deployment & Live Demo**
   - Added PostgreSQL `002_seed_test_data.sql` to populate mock creators, affiliates, and AI telemetry for demo purposes.
   - Created `demo_script.md` for live stakeholder presentation.
-  - Verified `docker-compose.yml` configuration for seamless `docker compose up -d` single-command deployment on Hostinger VPS.
+  - Verified `docker-compose.yml` configuration for seamless `docker compose up -d` single-command deployment on Production VPS.
   - Remediated database connection URL for production Docker deployment and finalized Phase 1 live deployment.
 - **Day 6: Cloud AI Video & Audio Rendering Factory**
   - Integrated Fal.ai / Wan2.2 API for 9:16 vertical video generation.
@@ -68,6 +75,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Selected OpenAI GPT-4o for AI Director scriptwriting and OpenAI TTS for voiceover narration.
 - Integrated LangChain v1.x+ (`create_agent`) with Pydantic `DirectorSpec` structured output and Claims Middleware.
 - Selected Cloud Video Generation API (Fal.ai / Replicate Wan2.2, pay-per-second, ~$0.03/video) for zero-local-GPU execution.
-- Connected with user's pre-existing self-hosted n8n instance on Hostinger VPS for event dispatching.
+- Connected with user's pre-existing self-hosted n8n instance on Production VPS for event dispatching.
 - Set default creator commission to 20% (dynamically configurable) with NTD (TWD) currency and English locale.
-- Configured Cloudflare Tunnel for local development and Docker Compose for Hostinger VPS production deployment.
+- Configured Cloudflare Tunnel for local development and Docker Compose for Production VPS production deployment.

@@ -21,11 +21,11 @@
           "parameters": [
             {
               "name": "product_id",
-              "value": "prod_999999999"
+              "value": "={{ $json.product_id || \"prod_999999999\" }}"
             },
             {
               "name": "creator_id",
-              "value": "550e8400-e29b-41d4-a716-446655440000"
+              "value": "={{ $json.creator_id || \"550e8400-e29b-41d4-a716-446655440000\" }}"
             }
           ]
         },
@@ -39,13 +39,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://core-api:8000/video-jobs/render",
+        "url": "http://181.215.135.249:8080/video-jobs/render",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
             {
               "name": "director_spec",
-              "value": "={{$json[\"body\"]}}"
+              "value": "={{ $json.visual_hook ? $json : ($json.body || $json) }}"
             }
           ]
         },

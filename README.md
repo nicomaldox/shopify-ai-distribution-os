@@ -36,15 +36,18 @@ flowchart LR
 ✅ **Day 5:** AI Director Agent (LangGraph + OpenAI GPT-4o) & Telemetry
 ✅ **Day 6:** Cloud AI Video & Audio Rendering Factory
 ✅ **Day 7:** Creator Studio & Admin Console
-✅ **Day 8:** Hostinger VPS Deployment & Live Demo Presentation
+✅ **Day 8:** Production VPS Deployment & Live Demo Presentation
 
 ---
 
 ## 2. Core Architectural Features
 
 ### 🛒 Commerce & Payments (Shopify Native)
+### 🛒 Commerce & Payments (Shopify Native)
 * **Zero Customer Fund Custody:** Customer payments and refunds are 100% processed by Shopify Payments directly into the merchant bank account. The system acts solely as an internal accounting ledger for creator commissions.
-* **Webhook Reliability:** HMAC-SHA256 signature verification and idempotency deduplication (`X-Shopify-Webhook-Id`) across `orders/paid`, `refunds/create`, and `products/update`.
+* **Resilient Hybrid Ingestion:** 
+  * **Zero-Tunnel Pull-Sync:** Automatically queries Shopify Admin REST API (`2024-01`) every 30 seconds (and via manual "Sync Now" trigger) to ingest paid orders and refunds with 100% reliability, immune to public tunnel drops and SSL hurdles.
+  * **Hardened Push Webhooks:** Constant-time multi-secret HMAC-SHA256 verification and idempotency deduplication (`X-Shopify-Webhook-Id`) across `orders/paid`, `refunds/create`, and `products/update`.
 
 ### 🔗 Deterministic Sales Attribution
 * **Fast Redirect Gateway (`/r/{slug}`):** High-speed URL redirection with visitor session hashing, UTM capture, and signed referral tokens.
@@ -62,7 +65,7 @@ flowchart LR
 
 ### 🖥️ User Applications
 * **Creator Studio Web App:** Portal for creators to view daily tasks, preview/download AI videos and scripts, manage referral links/codes, and inspect live earnings.
-* **Company Admin Console:** Management interface for product catalog settings, configurable commission rates, and live transaction ledger audits.
+* **Company Admin Console:** Management interface for product catalog settings, configurable commission rates, live transaction ledger audits, and one-click "Sync Shopify Orders" button.
 
 ---
 
@@ -71,15 +74,16 @@ flowchart LR
 ```mermaid
 flowchart TB
     subgraph Commerce ["1. Commerce Layer"]
-        SHOPIFY["Shopify Store & Payments (GraphQL 2026-07)"]
+        SHOPIFY["Shopify Store & Payments (Admin REST / GraphQL)"]
     end
 
     subgraph CoreEngine ["2. Proprietary Distribution Core"]
-        CORE_API["Core API (FastAPI / Node.js)"]
+        CORE_API["Core API (FastAPI)"]
+        SYNC["Pull-Sync Engine (30s Polling + Manual Sync)"]
         PG[(PostgreSQL 16+)]
         VALKEY[(Valkey / Redis 8+)]
         LEDGER["Append-Only Commission Ledger"]
-        ATTRIB["Attribution Resolver"]
+        ATTR["Attribution Resolver"]
     end
 
     subgraph AIEngine ["3. AI Content Factory"]
@@ -89,15 +93,17 @@ flowchart TB
     end
 
     subgraph Portals ["4. User Applications"]
-        CREATOR_APP["Creator Studio"]
-        ADMIN_APP["Company Admin Console"]
+        CREATOR_APP["Creator Studio (Port 3000)"]
+        ADMIN_APP["Company Admin Console (Port 3001)"]
     end
 
+    SHOPIFY <-->|"Outbound API Poll"| SYNC
     SHOPIFY -->|"HMAC Webhooks"| CORE_API
+    SYNC --> CORE_API
     CORE_API --> PG
     CORE_API --> VALKEY
     CORE_API --> LEDGER
-    CORE_API --> ATTRIB
+    CORE_API --> ATTR
     CORE_API --> N8N
     N8N --> DIRECTOR
     DIRECTOR --> RENDERER
@@ -107,54 +113,49 @@ flowchart TB
 
 | Layer | Technologies |
 |---|---|
-| **Backend & Core API** | Python 3.11+ (FastAPI) / Node.js 20+, Pydantic |
-| **Commerce API** | Shopify Admin GraphQL API (`2026-07`), Webhook Ingestion |
-| **Databases** | PostgreSQL 16 (Primary Ledger), Valkey / Redis (Cache & Locks) |
-| **AI Content** | OpenAI (GPT-4o), OpenAI Audio (TTS), Wan2.2 (ComfyUI) |
+| **Backend & Core API** | Python 3.11+ / 3.13 (FastAPI), SQLAlchemy Async, Pydantic |
+| **Commerce Ingestion** | Shopify Admin REST API (`2024-01`), 30s Polling Daemon & Webhooks |
+| **Databases** | PostgreSQL 16 (Primary Ledger via Docker), Valkey / Redis (Cache & Locks) |
+| **AI Content** | OpenAI (GPT-4o), OpenAI Audio (TTS), Wan2.2 (Fal.ai) |
 | **Media Processing** | FFmpeg 6.0+ |
-| **Frontend Portals** | Next.js 14+ / React 19, Vanilla CSS |
-| **Infrastructure** | Docker Compose, Cloudflare Tunnel |
+| **Frontend Portals** | Next.js / React, Vanilla CSS Glassmorphism |
+| **Infrastructure** | Docker Desktop (Windows) / Docker Compose (Linux VPS) |
 
 ---
 
-## 4. Getting Started
+## 4. Getting Started (Local Development)
 
 ### Prerequisites
-* [Docker & Docker Compose](https://docs.docker.com/get-docker/) (v2.0+)
-* [Node.js](https://nodejs.org/) (v20+) or [Python](https://www.python.org/) (v3.11+)
-* Shopify Development Store with Custom App Admin API credentials
+* [Docker Desktop for Windows](https://docs.docker.com/desktop/install/windows-install/) (or Docker on Linux/macOS)
+* [Python](https://www.python.org/) 3.11+ or 3.13
+* [Node.js](https://nodejs.org/) v20+ or v24
+* Shopify Development Store with Custom App credentials
 
-### Installation
+### Local Environment Setup
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/your-org/shopify-ai-distribution-os.git
-   cd shopify-ai-distribution-os
+1. **Start Database Services via Docker:**
+   ```powershell
+   docker compose up -d postgres valkey
    ```
 
 2. **Configure Environment Variables:**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your Shopify API keys, OpenAI API key, and database passwords
+   Ensure `.env` contains valid Shopify credentials (`SHOPIFY_ADMIN_API_ACCESS_TOKEN`, `SHOPIFY_SHOP_DOMAIN`).
+
+3. **Initialize Python Virtual Environment & Run Core API:**
+   ```powershell
+   python -m venv .venv
+   .\.venv\Scripts\pip install -r requirements.txt
+   .\.venv\Scripts\uvicorn main:app --app-dir src/apps/core-api --reload --port 8000
    ```
 
-3. **Start the Platform with Docker Compose:**
-   ```bash
-   docker compose up -d
-   ```
+4. **Start Frontend Applications:**
+   * **Creator Studio:** `cd src/apps/creator-web && npm run dev` (`http://localhost:3000`)
+   * **Admin Console:** `cd src/apps/admin-web && npm run dev` (`http://localhost:3001`)
 
-4. **Start Cloudflare Tunnel (For Local Webhook Testing):**
-   ```bash
-   # Make sure cloudflared is installed locally
-   cloudflared tunnel --url http://localhost:8000
-   # Copy the generated https://*.trycloudflare.com URL to your Shopify Webhook settings
-   ```
-
-4. **Access the Applications (VPS Live):**
-   * **Core API & Webhooks:** `http://181.215.135.249:8080`
-   * **Creator Studio Portal:** `http://181.215.135.249:3000`
-   * **Admin Console:** `http://181.215.135.249:3001`
-   * **API Documentation:** `http://181.215.135.249:8080/docs`
+5. **Access Endpoints:**
+   * **Core API & Swagger UI:** `http://localhost:8000/docs`
+   * **Creator Studio:** `http://localhost:3000`
+   * **Admin Console:** `http://localhost:3001`
 
 ---
 

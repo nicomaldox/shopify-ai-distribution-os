@@ -31,7 +31,20 @@ async def generate_audio(narration_text: str) -> str:
             input=narration_text
         )
         
-        await response.stream_to_file(output_path)
+        if hasattr(response, "write_to_file"):
+            response.write_to_file(output_path)
+        elif hasattr(response, "stream_to_file"):
+            response.stream_to_file(output_path)
+        elif hasattr(response, "content"):
+            with open(output_path, "wb") as f:
+                f.write(response.content)
+        elif hasattr(response, "read"):
+            with open(output_path, "wb") as f:
+                f.write(response.read())
+        else:
+            with open(output_path, "wb") as f:
+                f.write(bytes(response))
+
         logger.info(f"Audio successfully saved to {output_path}")
         return output_path
     except Exception as e:
@@ -39,9 +52,26 @@ async def generate_audio(narration_text: str) -> str:
         raise
 
 async def _mock_generate_audio() -> str:
-    await asyncio.sleep(1)
+    """Generates a valid 3-second silent MP3 audio file using ffmpeg for offline testing."""
     temp_dir = tempfile.gettempdir()
     output_path = os.path.join(temp_dir, f"audio_mock_{uuid.uuid4().hex}.mp3")
+    cmd = [
+        "ffmpeg", "-y",
+        "-f", "lavfi",
+        "-i", "anullsrc=r=44100:cl=stereo",
+        "-t", "3",
+        "-c:a", "libmp3lame",
+        output_path
+    ]
+    try:
+        proc = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        await proc.communicate()
+        if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+            logger.info(f"Synthetic mock audio generated successfully: {output_path}")
+            return output_path
+    except Exception as e:
+        logger.warning(f"Failed to generate synthetic mock MP3 with ffmpeg: {e}")
+        
     with open(output_path, 'wb') as f:
         f.write(b"mock_audio_data")
     return output_path

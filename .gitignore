@@ -22,12 +22,19 @@ id_rsa*
 id_ed25519*
 
 # ==============================================================================
-# Internal Development Specs & SDD Artifacts (Excluded from Public Repo)
+# Internal Development Specs, Guides, Handoffs & Reports (Strict Exclusion)
 # ==============================================================================
 specs/
 report.md
+DAY_5_EXECUTIVE_REPORT.*
+*.pdf
+USER_GUIDE.md
+AGENT_HANDOFF.md
+demo_script.md
 SKILL.md
 AGENTS.md
+.agent/
+.agents/
 .markdown-collab/
 *.tmp
 *.bak

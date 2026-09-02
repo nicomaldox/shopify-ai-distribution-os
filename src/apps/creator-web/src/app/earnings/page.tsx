@@ -1,6 +1,7 @@
 async function getEarnings() {
   try {
-    const res = await fetch('http://core-api:8000/frontend/earnings', { cache: 'no-store' });
+    const apiBase = process.env.API_BASE_URL || 'http://localhost:8000'
+    const res = await fetch(`${apiBase}/frontend/earnings`, { cache: 'no-store' });
     if (!res.ok) return { data: [] };
     return res.json();
   } catch (e) {

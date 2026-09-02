@@ -1,11 +1,23 @@
+import os
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 import uvicorn
 from routers import webhooks, redirects, ai, video_jobs, frontend_api
+from services.scheduler import start_scheduler, stop_scheduler
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    enable_scheduler = os.getenv("ENABLE_BACKGROUND_SYNC", "true").lower() in ("true", "1")
+    if enable_scheduler:
+        start_scheduler()
+    yield
+    stop_scheduler()
 
 app = FastAPI(
     title="Shopify AI KOL Distribution OS - Core API",
     description="FastAPI Backend for Commerce, Ledger and AI Orchestration",
-    version="0.1.0"
+    version="0.1.0",
+    lifespan=lifespan
 )
 
 app.include_router(webhooks.router)

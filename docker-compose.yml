@@ -48,7 +48,10 @@ services:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-distribution_user}:${POSTGRES_PASSWORD:-distribution_password}@postgres:5432/${POSTGRES_DB:-distribution_db}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - FAL_KEY=${FAL_KEY}
+      - SHOPIFY_SHOP_DOMAIN=${SHOPIFY_SHOP_DOMAIN:-0efjx4-fp.myshopify.com}
       - SHOPIFY_WEBHOOK_SECRET=${SHOPIFY_WEBHOOK_SECRET}
+      - SESSION_SALT=${SESSION_SALT:-dev_session_salt_change_me}
+      - JWT_SECRET=${JWT_SECRET:-dev_jwt_secret_change_me}
     depends_on:
       postgres:
         condition: service_healthy

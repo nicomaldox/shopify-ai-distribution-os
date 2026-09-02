@@ -14,7 +14,7 @@ from urllib.parse import urlparse
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Tracking"])
 
-SHOPIFY_SHOP_DOMAIN = os.getenv("SHOPIFY_SHOP_DOMAIN", "your-store.myshopify.com")
+SHOPIFY_SHOP_DOMAIN = os.getenv("SHOPIFY_SHOP_DOMAIN", "0efjx4-fp.myshopify.com")
 
 def is_safe_redirect_url(url: str) -> bool:
     """Validates domain allowlist and prevents SSRF to private IPs."""

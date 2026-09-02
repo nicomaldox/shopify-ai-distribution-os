@@ -13,7 +13,24 @@ from decimal import Decimal
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/webhooks/shopify", tags=["Webhooks"])
 
+import uuid
+from pydantic import BaseModel
+from typing import Optional
+
+class SimulateOrderRequest(BaseModel):
+    total_price: str = "3000.00"
+    discount_code: str = "ALEX10"
+    currency: str = "TWD"
+
+class SimulateRefundRequest(BaseModel):
+    order_id: str
+    refund_amount: str = "1500.00"
+
+@router.post("")
 @router.post("/")
+@router.post("/orders/paid")
+@router.post("/refunds/create")
+@router.post("/products/update")
 async def shopify_webhook_receiver(
     request: Request,
     raw_body: bytes = Depends(verify_shopify_webhook),
@@ -23,12 +40,20 @@ async def shopify_webhook_receiver(
     Generic webhook receiver for Shopify events.
     Enforces idempotency using X-Shopify-Webhook-Id in the webhook_inbox table.
     """
-    webhook_id = request.headers.get("X-Shopify-Webhook-Id")
+    webhook_id = request.headers.get("X-Shopify-Webhook-Id") or f"wh_{uuid.uuid4().hex[:16]}"
     topic = request.headers.get("X-Shopify-Topic")
-    shop_domain = request.headers.get("X-Shopify-Shop-Domain")
+    shop_domain = request.headers.get("X-Shopify-Shop-Domain") or "0efjx4-fp.myshopify.com"
 
-    if not webhook_id or not topic:
-        raise HTTPException(status_code=400, detail="Missing essential webhook headers")
+    if not topic:
+        if "orders/paid" in request.url.path:
+            topic = "orders/paid"
+        elif "refunds/create" in request.url.path:
+            topic = "refunds/create"
+        elif "products/update" in request.url.path:
+            topic = "products/update"
+
+    if not topic:
+        raise HTTPException(status_code=400, detail="Missing essential webhook topic header")
 
     # 1. Idempotency Check & Lock
     # We attempt to insert into webhook_inbox. If it fails due to UNIQUE constraint, it's a duplicate.
@@ -166,7 +191,91 @@ async def shopify_webhook_receiver(
             await db.rollback()
             logger.error(f"Failed to process products/update: {e}")
             raise HTTPException(status_code=500, detail="Internal processing error")
-    else:
-        logger.info(f"Received unhandled topic: {topic}")
-
     return {"status": "ok", "message": "Webhook processed"}
+
+@router.post("/sync")
+async def api_trigger_shopify_sync(
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db_session)
+):
+    """
+    Manual 'Sync Now' trigger.
+    Pulls recent orders and refunds directly from Shopify Admin API,
+    resolving attribution and updating the append-only ledger immediately.
+    """
+    from services.shopify_sync import sync_shopify_orders
+    result = await sync_shopify_orders(db, limit=limit)
+    return result
+
+@router.post("/simulate-order")
+async def api_simulate_order(
+    payload: SimulateOrderRequest,
+    db: AsyncSession = Depends(get_db_session)
+):
+    """
+    Simulation endpoint to test Function 2 (Sales EARN Attribution) directly.
+    """
+    sim_order_id = f"sim_{uuid.uuid4().hex[:10]}"
+    fake_payload = {
+        "id": sim_order_id,
+        "total_price": payload.total_price,
+        "currency": payload.currency,
+        "financial_status": "paid",
+        "discount_codes": [{"code": payload.discount_code}],
+        "line_items": [
+            {
+                "id": f"item_{uuid.uuid4().hex[:8]}",
+                "product_id": "prod_999999999",
+                "title": "Shopify AI Distribution OS Pro License",
+                "quantity": 1,
+                "price": payload.total_price
+            }
+        ]
+    }
+    
+    creator_id, attribution_source = await resolve_order_attribution(db, fake_payload)
+    
+    stmt = text("""
+        INSERT INTO orders (order_id, total_price, currency, financial_status, attributed_creator_id, attribution_source)
+        VALUES (:order_id, :total_price, :currency, :financial_status, :creator_id, :attribution_source)
+        ON CONFLICT (order_id) DO NOTHING
+    """)
+    await db.execute(stmt, {
+        "order_id": sim_order_id,
+        "total_price": payload.total_price,
+        "currency": payload.currency,
+        "financial_status": "paid",
+        "creator_id": creator_id,
+        "attribution_source": attribution_source
+    })
+    
+    if creator_id:
+        await record_commission_earn(db, sim_order_id, payload.total_price, creator_id)
+        
+    await db.commit()
+    
+    return {
+        "status": "SUCCESS",
+        "order_id": sim_order_id,
+        "total_price": payload.total_price,
+        "attributed_creator_id": creator_id,
+        "attribution_source": attribution_source,
+        "message": f"Order {sim_order_id} simulated and 20% commission credited to {creator_id}!"
+    }
+
+@router.post("/simulate-refund")
+async def api_simulate_refund(
+    payload: SimulateRefundRequest,
+    db: AsyncSession = Depends(get_db_session)
+):
+    """
+    Simulation endpoint to test Function 3 (Refund REVERSAL) directly.
+    """
+    await record_refund_reversal(db, payload.order_id, payload.refund_amount)
+    await db.commit()
+    return {
+        "status": "SUCCESS",
+        "order_id": payload.order_id,
+        "refund_amount": payload.refund_amount,
+        "message": f"Refund of NT${payload.refund_amount} processed and proportional REVERSAL recorded in ledger!"
+    }

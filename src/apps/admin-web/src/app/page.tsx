@@ -1,6 +1,9 @@
+import SyncButton from '@/components/SyncButton'
+
 async function getLedger() {
   try {
-    const res = await fetch('http://core-api:8000/frontend/audit-ledger', { cache: 'no-store' });
+    const apiBase = process.env.API_BASE_URL || 'http://localhost:8000'
+    const res = await fetch(`${apiBase}/frontend/audit-ledger`, { cache: 'no-store' });
     if (!res.ok) return { data: [] };
     return res.json();
   } catch (e) {
@@ -19,7 +22,10 @@ export default async function LedgerPage() {
       <div className="glass-panel">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <h3>Transaction Stream</h3>
-          <button className="btn">Export CSV</button>
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            <SyncButton />
+            <button className="btn">Export CSV</button>
+          </div>
         </div>
         <table>
           <thead>
