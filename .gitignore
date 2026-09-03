@@ -27,6 +27,8 @@ id_ed25519*
 specs/
 report.md
 DAY_5_EXECUTIVE_REPORT.*
+Report_*.md
+report_*.md
 *.pdf
 USER_GUIDE.md
 AGENT_HANDOFF.md
