@@ -1,11 +1,5 @@
-import type { Metadata } from 'next'
 import './globals.css'
 import Link from 'next/link'
-
-export const metadata: Metadata = {
-  title: 'Admin Console | Distribution OS',
-  description: 'AI KOL Distribution OS Admin Portal',
-}
 
 export default function RootLayout({
   children,
@@ -13,8 +7,12 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body>
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <title>Admin Console | Distribution OS</title>
+        <meta name="description" content="AI KOL Distribution OS Admin Portal" />
+      </head>
+      <body suppressHydrationWarning>
         <div className="sidebar">
           <div className="logo">ADMIN_CONSOLE</div>
           <Link href="/">Audit Ledger</Link>

@@ -1,6 +1,10 @@
 import os
+from dotenv import load_dotenv
+load_dotenv()
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from routers import webhooks, redirects, ai, video_jobs, frontend_api
 from services.scheduler import start_scheduler, stop_scheduler
@@ -18,6 +22,14 @@ app = FastAPI(
     description="FastAPI Backend for Commerce, Ledger and AI Orchestration",
     version="0.1.0",
     lifespan=lifespan
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(webhooks.router)

@@ -1,6 +1,6 @@
 # PowerShell script to set up local development environment on Windows
 Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host " Shopify AI Distribution OS — Local Environment Setup" -ForegroundColor Cyan
+Write-Host " Shopify AI Distribution OS -- Local Environment Setup" -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
 
 # 1. Check Python
@@ -9,14 +9,14 @@ if ($LASTEXITCODE -ne 0) {
     Write-Error "Python is not installed or not in PATH. Please install Python 3.11+."
     exit 1
 }
-Write-Host "[✓] $pythonVersion detected." -ForegroundColor Green
+Write-Host "[OK] $pythonVersion detected." -ForegroundColor Green
 
 # 2. Setup Virtual Environment
 if (-not (Test-Path ".venv")) {
     Write-Host "[*] Creating virtual environment (.venv)..." -ForegroundColor Yellow
     python -m venv .venv
 } else {
-    Write-Host "[✓] Virtual environment (.venv) already exists." -ForegroundColor Green
+    Write-Host "[OK] Virtual environment (.venv) already exists." -ForegroundColor Green
 }
 
 # 3. Upgrade pip and install requirements
@@ -26,9 +26,13 @@ Write-Host "[*] Installing Python dependencies into .venv..." -ForegroundColor Y
 
 # 4. Check Docker Desktop for Postgres/Valkey
 Write-Host "[*] Checking Docker..." -ForegroundColor Yellow
+$dockerDefaultBin = "$env:LOCALAPPDATA\Programs\DockerDesktop\resources\bin"
+if (Test-Path "$dockerDefaultBin\docker.exe") {
+    $env:PATH = "$dockerDefaultBin;" + $env:PATH
+}
 $dockerCmd = Get-Command docker -ErrorAction SilentlyContinue
 if ($dockerCmd) {
-    Write-Host "[✓] Docker CLI detected. Starting PostgreSQL and Valkey containers..." -ForegroundColor Green
+    Write-Host "[OK] Docker CLI detected. Starting PostgreSQL and Valkey containers..." -ForegroundColor Green
     docker compose up -d postgres valkey
 } else {
     Write-Host "[!] Docker Desktop is not yet running or not in PATH." -ForegroundColor Yellow

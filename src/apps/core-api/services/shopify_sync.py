@@ -33,6 +33,9 @@ async def fetch_shopify_orders(limit: int = 50) -> list[dict]:
         "status": "any",
         "limit": limit
     }
+    since_id = os.getenv("SHOPIFY_SYNC_SINCE_ID", "").strip()
+    if since_id:
+        params["since_id"] = since_id
 
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:

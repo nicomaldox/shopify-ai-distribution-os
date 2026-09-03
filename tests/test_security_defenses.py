@@ -54,3 +54,85 @@ def test_signed_referral_tokens():
     # Verify invalid token
     assert verify_signed_referral_token(f"{slug}.invalid_sig") is None
     assert verify_signed_referral_token("just_a_slug") is None
+
+from unittest.mock import AsyncMock, MagicMock
+from fastapi import HTTPException, Request
+from routers.redirects import redirect_gateway
+
+@pytest.mark.asyncio
+async def test_redirect_gateway_unapproved_slug():
+    """Verify that visiting an unapproved or unknown slug triggers HTTP 400 Bad Request."""
+    mock_request = AsyncMock(spec=Request)
+    mock_request.query_params.get.return_value = None
+    
+    mock_db = AsyncMock()
+    mock_res = MagicMock()
+    mock_res.fetchone.return_value = None
+    mock_db.execute.return_value = mock_res
+    
+    with pytest.raises(HTTPException) as exc_info:
+        await redirect_gateway(slug="malicious-link", request=mock_request, db=mock_db)
+        
+    assert exc_info.value.status_code == 400
+    assert "Open redirect defense" in exc_info.value.detail
+    assert "malicious-link" in exc_info.value.detail
+
+@pytest.mark.asyncio
+async def test_redirect_gateway_unauthorized_dest_param():
+    """Verify that attempts to override destination to an unauthorized domain trigger HTTP 400 Bad Request."""
+    mock_request = AsyncMock(spec=Request)
+    mock_request.query_params.get.side_effect = lambda k, default=None: {
+        "dest": "https://evil.com"
+    }.get(k, default)
+    
+    mock_db = AsyncMock()
+    
+    with pytest.raises(HTTPException) as exc_info:
+        await redirect_gateway(slug="alex-tech", request=mock_request, db=mock_db)
+        
+    assert exc_info.value.status_code == 400
+    assert "not an authorized Shopify domain" in exc_info.value.detail
+
+@pytest.mark.asyncio
+async def test_redirect_gateway_ssrf_dest_param():
+    """Verify that destination parameters resolving to private IPs/cloud metadata trigger HTTP 400 Bad Request."""
+    mock_request = AsyncMock(spec=Request)
+    mock_request.query_params.get.side_effect = lambda k, default=None: {
+        "dest": "http://169.254.169.254"
+    }.get(k, default)
+    
+    mock_db = AsyncMock()
+    
+    with pytest.raises(HTTPException) as exc_info:
+        await redirect_gateway(slug="alex-tech", request=mock_request, db=mock_db)
+        
+    assert exc_info.value.status_code == 400
+
+@pytest.mark.asyncio
+async def test_redirect_gateway_approved_slug_success():
+    """Verify that an approved slug logs the click and returns HTTP 302 to the Shopify store."""
+    os.environ["SHOPIFY_SHOP_DOMAIN"] = "0efjx4-fp.myshopify.com"
+    
+    mock_request = AsyncMock(spec=Request)
+    mock_request.query_params.get.return_value = None
+    mock_request.client.host = "192.168.1.50"
+    mock_request.headers.get.return_value = "Mozilla/5.0"
+    
+    mock_db = AsyncMock()
+    mock_link = MagicMock()
+    mock_link.link_id = "link-uuid-123"
+    mock_link.creator_id = "creator-uuid-456"
+    
+    mock_lookup_res = MagicMock()
+    mock_lookup_res.fetchone.return_value = mock_link
+    
+    mock_insert_res = MagicMock()
+    mock_insert_res.scalar.return_value = "click-uuid-789"
+    
+    mock_db.execute.side_effect = [mock_lookup_res, mock_insert_res]
+    
+    response = await redirect_gateway(slug="alex-tech", request=mock_request, db=mock_db)
+    
+    assert response.status_code == 302
+    assert "https://0efjx4-fp.myshopify.com/?ref=" in response.headers["location"]
+

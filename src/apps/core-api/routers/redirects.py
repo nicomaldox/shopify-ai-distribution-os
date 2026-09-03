@@ -48,6 +48,20 @@ async def redirect_gateway(
     High-performance public redirect gateway.
     Logs the click securely, hashes the IP, and redirects to the Shopify store.
     """
+    # 0. Open Redirect & SSRF Defense: Block malicious redirect parameter attempts
+    dest_param = (
+        request.query_params.get("dest") or 
+        request.query_params.get("redirect") or 
+        request.query_params.get("url") or 
+        request.query_params.get("target")
+    )
+    if dest_param and not is_safe_redirect_url(dest_param):
+        logger.warning(f"Blocked open-redirect attempt to unauthorized destination: {dest_param}")
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Open redirect defense: destination '{dest_param}' is not an authorized Shopify domain."
+        )
+
     # 1. Lookup the slug in the affiliate_links table
     stmt = text("""
         SELECT link_id, creator_id 
@@ -58,8 +72,11 @@ async def redirect_gateway(
     link_record = result.fetchone()
 
     if not link_record:
-        # Prevent open-redirect or dead links: safely redirect to home page
-        return RedirectResponse(url=f"https://{SHOPIFY_SHOP_DOMAIN}/", status_code=302)
+        logger.warning(f"Rejected unapproved redirect slug: {slug}")
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Open redirect defense: slug '{slug}' is unapproved or invalid."
+        )
 
     # 2. Extract visitor details securely
     raw_ip = request.client.host if request.client else "unknown"

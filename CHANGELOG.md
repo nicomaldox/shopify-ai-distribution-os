@@ -7,13 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased] - 2026-09-03
 
 ### Added
+- **Open Redirect Defense Verification, Privacy Auditing & Test Hardening**
+  - Corrected the privacy compliance SQL verification query in `USER_GUIDE.md` to explicitly `INNER JOIN` `affiliate_links` on `link_id` and query `clicked_at`, resolving `ERROR: column "slug" does not exist`.
+  - Added comprehensive verification guidelines in `USER_GUIDE.md` detailing browser and `curl.exe` methods for verifying Open Redirect Defense (`HTTP 400 Bad Request` on unapproved slugs, unauthorized `dest` URLs, and SSRF private IP attempts).
+  - Extended `tests/test_security_defenses.py` with 4 automated test cases (`test_redirect_gateway_unapproved_slug`, `test_redirect_gateway_unauthorized_dest_param`, `test_redirect_gateway_ssrf_dest_param`, `test_redirect_gateway_approved_slug_success`), bringing the test suite to 29 passing tests (100% pass rate).
+- **Frontend Data Ergonomics, Cross-Origin Sync & Database Hygiene**
+  - Added `CORSMiddleware` to `src/apps/core-api/main.py` allowing cross-origin requests from `http://localhost:3000` (Creator Studio) and `http://localhost:3001` (Admin Console).
+  - Built `SyncButton.tsx` for Creator Studio (`src/apps/creator-web/src/components/SyncButton.tsx`) to allow creators to trigger instant order reconciliation from their Earnings dashboard.
+  - Resolved commission vs order value ambiguity: updated Creator and Admin UI tables to display both Net Order Value (`order_total`) and Commission Earned (20%) side-by-side.
+  - Implemented local timezone conversion (`Asia/Taipei`) in `frontend_api.py` via PostgreSQL `AT TIME ZONE :tz` and ISO-8601 formatting, replacing raw server UTC timestamps with local clock time.
+  - Safely purged mock/simulated transactions (`order_mock_001` and empty test order `123`) and executed full clean database reset across `commission_ledger`, `orders`, and `order_items`.
+  - Added `SHOPIFY_SYNC_SINCE_ID` configuration to `shopify_sync.py` to establish an order baseline, preventing the 30-second background daemon from re-syncing legacy Shopify store test orders after a clean database wipe.
+  - Permanently pinned frontend ports in `package.json` (`next dev -p 3000` for Creator Studio, `next dev -p 3001` for Admin Console) and eliminated Next.js 16 metadata wrapper hydration errors.
 - **Resilient Hybrid Ingestion Engine & Local Environment Transition**
   - Implemented `shopify_sync.py` to pull paid orders and refunds directly from Shopify Admin REST API, removing single-point-of-failure reliance on public tunnels and webhook HMAC matching.
-  - Added background polling scheduler (`scheduler.py`) running every 30 seconds for automated order reconciliation.
-  - Added manual `POST /webhooks/shopify/sync` endpoint and wired "Sync Shopify Orders" trigger in the Admin Console.
+  - Added background polling scheduler (`scheduler.py`) running every 30 seconds for automated order reconciliation via FastAPI lifespan.
+  - Added manual `POST /webhooks/shopify/sync` endpoint and wired "↻ Sync Shopify Orders" trigger button in the Admin Console.
   - Hardened `verify_shopify_webhook` middleware with automatic `.strip()` of CRLF artifacts, multi-secret candidate fallback (Notification Secret + Custom App Secret), and development diagnostic logging.
   - Configured local Docker Desktop development stack for PostgreSQL 16 and Valkey 8 (`docker compose up -d postgres valkey`).
-  - Added `tests/test_financial_scenarios.py` verifying all 5 core financial accounting scenarios (standard earn, duplicate idempotency, full cancellation, partial reversal, post-payout negative carryover) with 100% precision.
+  - Successfully verified live end-to-end sync against store `0efjx4-fp.myshopify.com`: ingested 11 real Shopify orders and recorded immutable commission accruals into PostgreSQL `commission_ledger`.
+  - Integrated `load_dotenv()` into `main.py` entrypoint for reliable local configuration loading across reload cycles.
+  - Added automated test suites: `tests/test_financial_scenarios.py` (5 financial accounting scenarios) and `tests/test_shopify_sync.py` (pull-sync order ingestion and idempotency), achieving 100% test pass rate (25/25 tests passing).
+  - Verified concurrent local operation of full stack: PostgreSQL 16 (5432), Valkey 8 (6379), Core API (8000), Admin Console (3001), and Creator Studio (3000).
 - **Day 8: VPS Deployment & Live Demo**
   - Added PostgreSQL `002_seed_test_data.sql` to populate mock creators, affiliates, and AI telemetry for demo purposes.
   - Created `demo_script.md` for live stakeholder presentation.

@@ -126,36 +126,55 @@ flowchart TB
 ## 4. Getting Started (Local Development)
 
 ### Prerequisites
-* [Docker Desktop for Windows](https://docs.docker.com/desktop/install/windows-install/) (or Docker on Linux/macOS)
-* [Python](https://www.python.org/) 3.11+ or 3.13
+* [Docker Desktop for Windows](https://docs.docker.com/desktop/install/windows-install/) (WSL 2 backend enabled)
+* [Python](https://www.python.org/) 3.11+ to 3.13
 * [Node.js](https://nodejs.org/) v20+ or v24
 * Shopify Development Store with Custom App credentials
 
-### Local Environment Setup
+### Quick Start (One-Click PowerShell Setup)
 
-1. **Start Database Services via Docker:**
+Run the included automated setup script from the project root:
+```powershell
+.\scripts\setup_local_env.ps1
+```
+*(Runs virtual environment setup, pip installs, and starts PostgreSQL 16 & Valkey 8 Docker containers automatically).*
+
+### Starting the Services (3 Terminal Tabs)
+
+1. **Terminal 1: Core API & Background Sync Scheduler**
    ```powershell
-   docker compose up -d postgres valkey
+   .\.venv\Scripts\uvicorn.exe main:app --app-dir src/apps/core-api --reload --port 8000
    ```
 
-2. **Configure Environment Variables:**
-   Ensure `.env` contains valid Shopify credentials (`SHOPIFY_ADMIN_API_ACCESS_TOKEN`, `SHOPIFY_SHOP_DOMAIN`).
-
-3. **Initialize Python Virtual Environment & Run Core API:**
+2. **Terminal 2: Creator Studio (Port 3000)**
    ```powershell
-   python -m venv .venv
-   .\.venv\Scripts\pip install -r requirements.txt
-   .\.venv\Scripts\uvicorn main:app --app-dir src/apps/core-api --reload --port 8000
+   cd src/apps/creator-web
+   npm run dev
    ```
 
-4. **Start Frontend Applications:**
-   * **Creator Studio:** `cd src/apps/creator-web && npm run dev` (`http://localhost:3000`)
-   * **Admin Console:** `cd src/apps/admin-web && npm run dev` (`http://localhost:3001`)
+3. **Terminal 3: Admin Console (Port 3001)**
+   ```powershell
+   cd src/apps/admin-web
+   npm run dev
+   ```
 
-5. **Access Endpoints:**
-   * **Core API & Swagger UI:** `http://localhost:8000/docs`
-   * **Creator Studio:** `http://localhost:3000`
-   * **Admin Console:** `http://localhost:3001`
+### Verification & Automated Testing
+
+Run the full automated test suite covering all 5 core financial accounting scenarios and security guards:
+```powershell
+.\.venv\Scripts\pytest.exe -v
+```
+**Result:** `29 passed in ~5.0s (100% pass rate across 10 test modules)`
+
+### Local Service Dashboard
+
+| Portal / Service | Local URL | Description |
+|---|---|---|
+| **Creator Studio** | [`http://localhost:3000`](http://localhost:3000)<br>Earnings: [`http://localhost:3000/earnings`](http://localhost:3000/earnings) | Tasks, video scripts, coupon codes, and 20% commission earnings |
+| **Admin Console** | [`http://localhost:3001`](http://localhost:3001) | Live transactional audit ledger, "↻ Sync Shopify Orders" button, AI metrics |
+| **Core API & Swagger** | [`http://localhost:8000/docs`](http://localhost:8000/docs) | Interactive Swagger UI & OpenAPI documentation |
+| **PostgreSQL Database** | `localhost:5432` | DB: `distribution_db`, User: `distribution_user` |
+| **Valkey / Redis Cache** | `localhost:6379` | High-speed cache for idempotency keys & rate limiting |
 
 ---
 

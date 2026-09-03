@@ -31,33 +31,50 @@ export default async function LedgerPage() {
           <thead>
             <tr>
               <th>ID (UUID)</th>
-              <th>Creator ID</th>
               <th>Order ID</th>
+              <th>Order Total (Net)</th>
               <th>Type</th>
-              <th>Amount (NTD)</th>
+              <th>Commission (20%)</th>
               <th>Status</th>
-              <th>Timestamp</th>
+              <th>Timestamp (Local)</th>
             </tr>
           </thead>
           <tbody>
             {data.length === 0 ? (
-              <tr><td colSpan={7} style={{textAlign: 'center'}}>No transactions found.</td></tr>
+              <tr><td colSpan={7} style={{textAlign: 'center', padding: '2rem'}}>No transactions found.</td></tr>
             ) : (
-              data.map((row: any) => (
-                <tr key={row.ledger_id}>
-                  <td><code>{row.ledger_id.substring(0,8)}...</code></td>
-                  <td>{row.creator_id ? row.creator_id.substring(0,8) : 'N/A'}</td>
-                  <td>{row.order_id}</td>
-                  <td>
-                    <span style={{ color: row.transaction_type === 'EARN' ? '#10b981' : '#ef4444', fontWeight: 600 }}>
-                      {row.transaction_type}
-                    </span>
-                  </td>
-                  <td>{parseFloat(row.amount).toFixed(4)}</td>
-                  <td>{row.status}</td>
-                  <td>{row.date}</td>
-                </tr>
-              ))
+              data.map((row: any) => {
+                const orderTotal = row.order_total ? parseFloat(row.order_total) : 0;
+                const commission = parseFloat(row.amount);
+                return (
+                  <tr key={row.ledger_id}>
+                    <td><code>{row.ledger_id.substring(0,8)}...</code></td>
+                    <td style={{ fontFamily: 'monospace' }}>{row.order_id || 'N/A'}</td>
+                    <td>{orderTotal > 0 ? `NT$ ${orderTotal.toFixed(2)}` : '—'}</td>
+                    <td>
+                      <span style={{ color: row.transaction_type === 'EARN' ? '#10b981' : '#ef4444', fontWeight: 600 }}>
+                        {row.transaction_type}
+                      </span>
+                    </td>
+                    <td style={{ fontWeight: 600, color: commission >= 0 ? '#10b981' : '#ef4444' }}>
+                      {commission > 0 ? '+NT$ ' : '-NT$ '}{Math.abs(commission).toFixed(2)}
+                    </td>
+                    <td>
+                      <span style={{
+                        padding: '0.2rem 0.6rem',
+                        borderRadius: '9999px',
+                        fontSize: '0.75rem',
+                        background: row.status === 'CLEARED' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                        color: row.status === 'CLEARED' ? '#10b981' : '#f59e0b',
+                        fontWeight: 500
+                      }}>
+                        {row.status}
+                      </span>
+                    </td>
+                    <td style={{ whiteSpace: 'nowrap' }}>{row.date}</td>
+                  </tr>
+                )
+              })
             )}
           </tbody>
         </table>

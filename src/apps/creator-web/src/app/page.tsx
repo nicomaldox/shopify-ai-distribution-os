@@ -8,7 +8,7 @@ export default function TasksPage() {
         <div className="glass-panel">
           <h3>Promote: Shopify Cap</h3>
           <p style={{ color: 'var(--text-secondary)', margin: '1rem 0' }}>
-            We've generated a 9:16 vertical video and script for you.
+            We&apos;ve generated a 9:16 vertical video and script for you.
           </p>
           <button className="btn">View Asset &gt;</button>
         </div>
