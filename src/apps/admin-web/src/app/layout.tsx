@@ -15,6 +15,7 @@ export default function RootLayout({
       <body suppressHydrationWarning>
         <div className="sidebar">
           <div className="logo">ADMIN_CONSOLE</div>
+          <Link href="/studio">✨ AI Content Studio</Link>
           <Link href="/">Audit Ledger</Link>
           <Link href="/commission">Rules & Payouts</Link>
           <Link href="/analytics">AI Telemetry</Link>

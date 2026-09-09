@@ -51,7 +51,7 @@ flowchart LR
 
 ### 🔗 Deterministic Sales Attribution
 * **Fast Redirect Gateway (`/r/{slug}`):** High-speed URL redirection with visitor session hashing, UTM capture, and signed referral tokens.
-* **Coupon Attribution Resolver:** Deterministic discount code mapping (e.g., checkout with code `ALEX10` attributes 100% of the sale to Creator Alex).
+* **Coupon Attribution Resolver:** Deterministic discount code mapping (e.g., checkout with code `ELENA10` attributes 100% of the sale to Creator Elena Lin).
 * **Multi-Evidence Priority:** `Promo Code > Signed Referral Token > Last Click Event`.
 
 ### 📒 Append-Only Double-Entry Commission Ledger
@@ -59,9 +59,11 @@ flowchart LR
 * **Proportional Refund Reversals:** Accurately deducts commissions on partial or full order refunds (e.g., -$80 reversal on a $400 partial refund of a $1,000 order) without destructive database updates.
 * **Audit Trail:** Immutable ledger entries with complete timestamp and transaction tracking.
 
-### 🎬 AI Content & Video Factory
-* **AI Director Agent:** Automated prompt pipeline generating high-converting 3-second hooks, 20-second scripts, visual scene pacing, and compliant `#Ad` / `#Sponsored` disclosures.
-* **Automated 9:16 Short Video Rendering:** Renders 720x1280 vertical video clips with AI voiceover narration and auto-generated subtitles.
+### 🎬 AI Content & Hybrid Video Factory
+* **AI Director Agent:** Automated prompt pipeline generating high-converting 3-second hooks, 20-24 second scripts across 4-6 scenes, and compliant `#Ad` / `#Sponsored` disclosures.
+* **Anti-Hallucination Hybrid Video Rendering:** Scene 1 (Hook) renders via Wan 2.1 Text-to-Video, and Scenes 2-6 render via Wan-I2V grounded on real product photography to guarantee authentic packaging, serum droplets, and texture without AI hallucinations.
+* **Dual Burned Overlays & Multi-Clip Stitching:** Assembles up to 6 scenes via FFmpeg `concat` filter with OpenAI TTS voiceover, burning a 3-second visual hook at center and permanent bottom ad disclosures (`#Ad #Sponsored 合作內容 含分潤連結`).
+* **Persistent Job Tracking & Local Streaming:** Render jobs are tracked in PostgreSQL (`video_render_jobs`) with polling via `GET /video-jobs/{job_id}` and streamed directly at `/static/videos/{filename}`.
 
 ### 🖥️ User Applications
 * **Creator Studio Web App:** Portal for creators to view daily tasks, preview/download AI videos and scripts, manage referral links/codes, and inspect live earnings.
@@ -131,13 +133,17 @@ flowchart TB
 * [Node.js](https://nodejs.org/) v20+ or v24
 * Shopify Development Store with Custom App credentials
 
-### Quick Start (One-Click PowerShell Setup)
+### Quick Start (Local Setup)
 
-Run the included automated setup script from the project root:
-```powershell
-.\scripts\setup_local_env.ps1
-```
-*(Runs virtual environment setup, pip installs, and starts PostgreSQL 16 & Valkey 8 Docker containers automatically).*
+1. Launch PostgreSQL 16 and Valkey 8 containers:
+   ```bash
+   docker compose up -d postgres valkey
+   ```
+2. Set up virtual environment and dependencies:
+   ```bash
+   python -m venv .venv
+   .\.venv\Scripts\pip install -r requirements.txt
+   ```
 
 ### Starting the Services (3 Terminal Tabs)
 
@@ -160,19 +166,20 @@ Run the included automated setup script from the project root:
 
 ### Verification & Automated Testing
 
-Run the full automated test suite covering all 5 core financial accounting scenarios and security guards:
+Run the full automated test suite covering all 5 core financial accounting scenarios, HITL video pipelines, and security guards:
 ```powershell
 .\.venv\Scripts\pytest.exe -v
 ```
-**Result:** `29 passed in ~5.0s (100% pass rate across 10 test modules)`
+**Result:** `37 passed in ~6.2s (100% pass rate across 12 test modules)`
 
 ### Local Service Dashboard
 
 | Portal / Service | Local URL | Description |
 |---|---|---|
 | **Creator Studio** | [`http://localhost:3000`](http://localhost:3000)<br>Earnings: [`http://localhost:3000/earnings`](http://localhost:3000/earnings) | Tasks, video scripts, coupon codes, and 20% commission earnings |
-| **Admin Console** | [`http://localhost:3001`](http://localhost:3001) | Live transactional audit ledger, "↻ Sync Shopify Orders" button, AI metrics |
+| **Admin Console** | [`http://localhost:3001`](http://localhost:3001)<br>AI Studio: [`http://localhost:3001/studio`](http://localhost:3001/studio) | AI Content Studio, transactional audit ledger, "↻ Sync Shopify Orders" button, AI metrics |
 | **Core API & Swagger** | [`http://localhost:8000/docs`](http://localhost:8000/docs) | Interactive Swagger UI & OpenAPI documentation |
+| **Static Video Stream** | `http://localhost:8000/static/videos/{filename}` | Direct HTTP streaming route for assembled UGC videos |
 | **PostgreSQL Database** | `localhost:5432` | DB: `distribution_db`, User: `distribution_user` |
 | **Valkey / Redis Cache** | `localhost:6379` | High-speed cache for idempotency keys & rate limiting |
 

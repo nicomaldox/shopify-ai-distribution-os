@@ -1,8 +1,8 @@
 FROM python:3.11-slim
 
-# Install system dependencies including ffmpeg (for video factory) and curl (for uv)
+# Install system dependencies including ffmpeg (for video factory), fonts, and curl (for uv)
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ffmpeg curl && \
+    apt-get install -y --no-install-recommends ffmpeg curl fonts-dejavu-core fontconfig && \
     rm -rf /var/lib/apt/lists/*
 
 # Install uv package manager

@@ -1,29 +1,23 @@
 -- src/packages/db/002_seed_test_data.sql
 
--- 1. Create a Creator (Alex)
+-- 1. Create Beauty & Skincare Creators
 INSERT INTO creators (creator_id, name, niche, commission_rate)
-VALUES ('550e8400-e29b-41d4-a716-446655440000', 'Alex The Tech Bro', 'Tech & Software', 0.2000)
+VALUES 
+('550e8400-e29b-41d4-a716-446655440001', 'Elena Lin (美妝護膚 艾琳娜)', 'Skincare & Clean Beauty', 0.2000),
+('550e8400-e29b-41d4-a716-446655440002', 'Chloe Chen (護膚日記 克洛伊)', 'Sensitive Skin Care', 0.2000)
 ON CONFLICT (creator_id) DO NOTHING;
 
--- 2. Create an Affiliate Link & Coupon for Alex
+-- 2. Create Affiliate Links & Coupons
 INSERT INTO affiliate_links (link_id, creator_id, slug, coupon_code)
-VALUES ('110e8400-e29b-41d4-a716-446655440000', '550e8400-e29b-41d4-a716-446655440000', 'alex-tech', 'ALEX10')
+VALUES 
+('110e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440001', 'elena-glow', 'ELENA10'),
+('110e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440002', 'chloe-skin', 'CHLOE20')
 ON CONFLICT (link_id) DO NOTHING;
 
--- 3. Mock Product
+-- 3. Beauty & Skincare Products
 INSERT INTO products (product_id, title, price, image_url)
-VALUES ('prod_999999999', 'Shopify AI Distribution OS Pro License', 3000.0000, 'https://placehold.co/400')
+VALUES 
+('prod_serum_001', 'Luminous Hydrating Glow Serum (極光保濕超導精華液)', 1280.0000, 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=800&q=80'),
+('prod_cream_002', 'Revitalizing Barrier Repair Cream (賦活屏障修護乳霜)', 1580.0000, 'https://images.unsplash.com/photo-1608248597359-bb47265ea5b3?w=800&q=80'),
+('prod_oil_003', 'Gentle Botanical Cleansing Oil (植萃舒緩深層潔顏油)', 980.0000, 'https://images.unsplash.com/photo-1601049541289-9b1b7bbbfe19?w=800&q=80')
 ON CONFLICT (product_id) DO NOTHING;
-
--- 4. Mock AI Generation Log (So the Analytics page isn't empty)
-INSERT INTO ai_generation_logs (trace_id, creator_id, product_id, total_tokens, estimated_cost_usd, latency_ms, claims_accuracy_score, status)
-VALUES ('trace_mock_001', '550e8400-e29b-41d4-a716-446655440000', 'prod_999999999', 1450, 0.0072, 1850, 1.0000, 'SUCCESS')
-ON CONFLICT DO NOTHING;
-
--- 5. Mock Order and Ledger Entry (So the Earnings page isn't empty)
-INSERT INTO orders (order_id, total_price, currency, financial_status, attributed_creator_id, attribution_source)
-VALUES ('order_mock_001', 3000.0000, 'TWD', 'paid', '550e8400-e29b-41d4-a716-446655440000', 'COUPON')
-ON CONFLICT (order_id) DO NOTHING;
-
-INSERT INTO commission_ledger (creator_id, order_id, transaction_type, amount, status)
-VALUES ('550e8400-e29b-41d4-a716-446655440000', 'order_mock_001', 'EARN', 600.0000, 'CLEARED');

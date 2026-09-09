@@ -6,8 +6,21 @@ import urllib.parse
 import ipaddress
 import httpx
 import asyncio
+import shutil
+import fal_client
 
 logger = logging.getLogger(__name__)
+
+def get_ffmpeg_binary() -> str:
+    return shutil.which("ffmpeg") or shutil.which("ffmpeg.exe") or "ffmpeg"
+
+def is_cloud_render_enabled() -> bool:
+    """
+    Checks if external cloud GPU rendering (e.g. paid Fal.ai) is explicitly enabled.
+    Defaults to False to prevent unnecessary cloud API spending.
+    """
+    return os.environ.get("ENABLE_CLOUD_VIDEO_RENDER", "false").lower() in ("true", "1")
+
 
 def is_safe_url(url: str) -> bool:
     """
@@ -39,100 +52,219 @@ def is_safe_url(url: str) -> bool:
     except Exception:
         return False
 
-async def generate_video(visual_hook: str, pacing_notes: list[str]) -> str:
-    """
-    Generates a 9:16 vertical video using Fal.ai (Wan) and returns the local file path.
-    Falls back gracefully to mock video generation if external cloud API is unavailable.
-    """
+async def _render_single_fal_clip(prompt: str, num_frames: int = 81) -> str:
+    """Helper to dispatch, poll, and download a single video clip from Fal.ai using fal_client."""
+    # Ensure fal_key is set in env
     fal_key = os.environ.get("FAL_KEY")
     if not fal_key:
-        logger.warning("FAL_KEY not found. Using mock video generation.")
-        return await _mock_generate_video()
+        raise ValueError("FAL_KEY is required for cloud rendering.")
+    
+    # We will use the officially recommended endpoint
+    endpoint = "fal-ai/wan/v2.1/text-to-video"
+    
+    try:
+        logger.info(f"Submitting Fal.ai T2V job for prompt: {prompt[:30]}... (frames: {num_frames})")
+        # Use subscribe_async to automatically handle queue and polling
+        result = await fal_client.subscribe_async(
+            endpoint,
+            arguments={
+                "prompt": prompt,
+                "aspect_ratio": "9:16",
+                "resolution": "480p",  # 480p to save costs
+                "num_frames": num_frames
+            }
+        )
+        
+        # Extract video URL
+        video_url = None
+        if "video" in result and isinstance(result["video"], dict):
+            video_url = result["video"].get("url")
+        elif "url" in result:
+            video_url = result.get("url")
+            
+        if not video_url:
+            raise RuntimeError(f"Could not find video URL in result: {result}")
+            
+        if not is_safe_url(video_url):
+            raise ValueError(f"SSRF Alert: Blocked unsafe video URL: {video_url}")
+            
+        temp_dir = tempfile.gettempdir()
+        output_path = os.path.join(temp_dir, f"clip_{uuid.uuid4().hex}.mp4")
+
+        logger.info(f"Downloading clip from {video_url}...")
+        async with httpx.AsyncClient() as client:
+            async with client.stream('GET', video_url) as stream_resp:
+                stream_resp.raise_for_status()
+                with open(output_path, 'wb') as f:
+                    async for chunk in stream_resp.aiter_bytes():
+                        f.write(chunk)
+
+        logger.info(f"Clip saved successfully: {output_path}")
+        return output_path
+        
+    except Exception as e:
+        logger.error(f"Fal.ai T2V rendering failed: {e}")
+        raise e
+
+async def _render_single_fal_i2v_clip(prompt: str, image_url: str, num_frames: int = 120) -> str:
+    """Helper to dispatch, poll, and download a single image-to-video clip from Fal.ai using fal_client."""
+    fal_key = os.environ.get("FAL_KEY")
+    if not fal_key:
+        raise ValueError("FAL_KEY is required for cloud rendering.")
+        
+    if not image_url:
+        raise ValueError("image_url is required for I2V generation.")
+    
+    endpoint = "fal-ai/wan-i2v"
+    
+    try:
+        logger.info(f"Submitting Fal.ai I2V job for prompt: {prompt[:30]}... (frames: {num_frames})")
+        result = await fal_client.subscribe_async(
+            endpoint,
+            arguments={
+                "prompt": prompt,
+                "image_url": image_url,
+                "aspect_ratio": "9:16",
+                "resolution": "480p",
+                "num_frames": num_frames
+            }
+        )
+        
+        video_url = None
+        if "video" in result and isinstance(result["video"], dict):
+            video_url = result["video"].get("url")
+        elif "url" in result:
+            video_url = result.get("url")
+            
+        if not video_url:
+            raise RuntimeError(f"Could not find video URL in result: {result}")
+            
+        if not is_safe_url(video_url):
+            raise ValueError(f"SSRF Alert: Blocked unsafe video URL: {video_url}")
+            
+        temp_dir = tempfile.gettempdir()
+        output_path = os.path.join(temp_dir, f"clip_{uuid.uuid4().hex}.mp4")
+
+        logger.info(f"Downloading clip from {video_url}...")
+        async with httpx.AsyncClient() as client:
+            async with client.stream('GET', video_url) as stream_resp:
+                stream_resp.raise_for_status()
+                with open(output_path, 'wb') as f:
+                    async for chunk in stream_resp.aiter_bytes():
+                        f.write(chunk)
+
+        logger.info(f"Clip saved successfully: {output_path}")
+        return output_path
+        
+    except Exception as e:
+        logger.error(f"Fal.ai I2V rendering failed: {e}")
+        raise e
+
+async def generate_video(visual_hook: str, pacing_notes: list[str]) -> str:
+    """
+    Generates a single 9:16 vertical video.
+    By default, uses local high-fidelity synthetic video generation to prevent cloud costs.
+    Cloud Fal.ai rendering is only executed if ENABLE_CLOUD_VIDEO_RENDER=true is explicitly set.
+    """
+    fal_key = os.environ.get("FAL_KEY")
+    if not is_cloud_render_enabled() or not fal_key:
+        logger.info("Cloud video rendering disabled or FAL_KEY absent. Using zero-cost local synthetic video.")
+        return await _mock_generate_video(scene_title=visual_hook)
         
     prompt = f"{visual_hook}. Pacing notes: {', '.join(pacing_notes)}"
     logger.info(f"Triggering Fal.ai Video Generation. Prompt: {prompt[:50]}...")
     
-    # Supported Fal Wan endpoints
-    endpoints = [
-        "https://queue.fal.run/fal-ai/wan/v2.1/text-to-video",
-        "https://queue.fal.run/fal-ai/wan-2.1-t2v-720p",
-        "https://queue.fal.run/fal-ai/wan2.2"
-    ]
-    
-    headers = {
-        "Authorization": f"Key {fal_key}",
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "prompt": prompt,
-        "aspect_ratio": "9:16"
-    }
-    
-    async with httpx.AsyncClient(timeout=120.0) as client:
-        for url in endpoints:
-            try:
-                response = await client.post(url, headers=headers, json=payload)
-                if response.status_code == 404:
-                    continue
-                response.raise_for_status()
-                
-                data = response.json()
-                request_id = data.get("request_id")
-                
-                video_url = None
-                if request_id:
-                    status_url = f"{url}/requests/{request_id}"
-                    for _ in range(25):
-                        await asyncio.sleep(4)
-                        status_resp = await client.get(status_url, headers=headers)
-                        status_data = status_resp.json()
-                        if status_data.get("status") == "COMPLETED":
-                            outputs = status_data.get("output", {}) if "output" in status_data else status_data
-                            if "video" in outputs and isinstance(outputs["video"], dict):
-                                video_url = outputs["video"].get("url")
-                            elif "url" in outputs:
-                                video_url = outputs.get("url")
-                            break
-                        elif status_data.get("status") == "FAILED":
-                            break
-                else:
-                    outputs = data.get("output", {}) if "output" in data else data
-                    if "video" in outputs and isinstance(outputs["video"], dict):
-                        video_url = outputs["video"].get("url")
-                    elif "url" in outputs:
-                        video_url = outputs.get("url")
-                    
-                if video_url:
-                    if not is_safe_url(video_url):
-                        raise ValueError(f"SSRF Alert: Blocked unsafe video URL: {video_url}")
-                        
-                    temp_dir = tempfile.gettempdir()
-                    output_path = os.path.join(temp_dir, f"video_{uuid.uuid4().hex}.mp4")
-                    
-                    logger.info(f"Downloading video from {video_url}...")
-                    async with client.stream('GET', video_url) as stream_resp:
-                        stream_resp.raise_for_status()
-                        with open(output_path, 'wb') as f:
-                            async for chunk in stream_resp.aiter_bytes():
-                                f.write(chunk)
-                                
-                    logger.info(f"Video successfully saved to {output_path}")
-                    return output_path
-            except Exception as ep_err:
-                logger.warning(f"Fal endpoint {url} failed: {ep_err}")
-                continue
-                
-    logger.warning("Fal.ai cloud video generation unavailable. Falling back to mock video.")
-    return await _mock_generate_video()
+    # Budget gate
+    COST_PER_CLIP_ESTIMATE = 0.15 # $0.05/s * 3s
+    MAX_BUDGET_PER_RENDER = 2.00
+    if COST_PER_CLIP_ESTIMATE > MAX_BUDGET_PER_RENDER:
+        logger.error(f"Estimated cost ${COST_PER_CLIP_ESTIMATE:.2f} exceeds budget ${MAX_BUDGET_PER_RENDER}")
+        return await _mock_generate_video(scene_title=visual_hook)
+        
+    try:
+        return await _render_single_fal_clip(prompt)
+    except Exception as e:
+        logger.warning(f"Fal.ai single video generation failed: {e}. Falling back to mock.")
+        return await _mock_generate_video(scene_title=visual_hook)
 
-async def _mock_generate_video() -> str:
-    """Generates a valid 3-second 9:16 vertical MP4 video using ffmpeg for offline testing."""
+async def generate_multi_clip_video(scenes: list[str], product_image_url: str = None) -> list[str]:
+    """
+    Generates multiple 9:16 vertical video clips (max 6 scenes).
+    By default, uses local high-fidelity synthetic multi-clip generation to prevent cloud costs.
+    Cloud Fal.ai rendering is only executed if ENABLE_CLOUD_VIDEO_RENDER=true is explicitly set.
+    Uses hybrid logic: Scene 1 (index 0) is T2V, Scenes 2+ (index 1+) are I2V (if image provided).
+    """
+    MAX_SCENES = 6
+    scenes = scenes[:MAX_SCENES]
+
+    fal_key = os.environ.get("FAL_KEY")
+    if not is_cloud_render_enabled() or not fal_key:
+        logger.info("Cloud video rendering disabled or FAL_KEY absent. Using zero-cost local synthetic multi-clips.")
+        return await _mock_generate_multi_clips(scenes=scenes)
+
+    logger.info(f"Triggering Hybrid Multi-Clip Video Generation for {len(scenes)} scenes via Fal.ai.")
+    
+    # Budget gate
+    COST_PER_CLIP_ESTIMATE = 0.20 # $0.04/s * 5s
+    estimated_cost = len(scenes) * COST_PER_CLIP_ESTIMATE
+    MAX_BUDGET_PER_RENDER = 4.00
+    if estimated_cost > MAX_BUDGET_PER_RENDER:
+        logger.error(f"Estimated cost ${estimated_cost:.2f} exceeds budget ${MAX_BUDGET_PER_RENDER}")
+        return await _mock_generate_multi_clips(scenes=scenes)
+        
+    def _clean_prompt(raw: str) -> str:
+        # Strip timing prefixes like 'Scene 1 (0-3s): ' or '(0-3s)' to give clean visual prompts
+        p = raw.strip()
+        if "):" in p:
+            p = p.split("):", 1)[1].strip()
+        elif ") " in p:
+            p = p.split(") ", 1)[1].strip()
+        return f"Vertical 9:16 cinematic video, TikTok UGC style: {p}"
+
+    clean_prompts = [_clean_prompt(s) for s in scenes]
+
+    tasks = []
+    for idx, prompt in enumerate(clean_prompts):
+        if idx == 0 or not product_image_url:
+            # Scene 1 (Hook) is T2V, 3s (72 frames)
+            tasks.append(_render_single_fal_clip(prompt, num_frames=72))
+        elif idx == 1:
+            # Scene 2 (Core Benefit) is I2V, 5s (120 frames)
+            tasks.append(_render_single_fal_i2v_clip(prompt, product_image_url, num_frames=120))
+        else:
+            # Scene 3-6 (Experience) is I2V, 4s (96 frames)
+            tasks.append(_render_single_fal_i2v_clip(prompt, product_image_url, num_frames=96))
+            
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    clips = []
+    for idx, res in enumerate(results):
+        if isinstance(res, str) and os.path.exists(res):
+            clips.append(res)
+        else:
+            logger.warning(f"Clip {idx} failed ({res}). Generating synthetic fallback.")
+            scene_label = scenes[idx] if idx < len(scenes) else f"Scene {idx+1}"
+            mock_clip = await _mock_generate_video(
+                color_hex="0x1e1b4b" if idx == 0 else ("0x0f172a" if idx == 1 else "0x064e3b"), 
+                duration=5,
+                scene_title=scene_label
+            )
+            clips.append(mock_clip)
+
+    return clips
+
+async def _mock_generate_video(color_hex: str = "0x1a1a2e", duration: int = 5, scene_title: str = "Scene") -> str:
+    """Generates a valid 9:16 vertical MP4 video using ffmpeg for offline and zero-cost testing."""
     temp_dir = tempfile.gettempdir()
     output_path = os.path.join(temp_dir, f"video_mock_{uuid.uuid4().hex}.mp4")
+    ffmpeg_bin = get_ffmpeg_binary()
+    safe_title = scene_title.replace("'", "").replace(":", " -")[:40]
+    
     cmd = [
-        "ffmpeg", "-y",
+        ffmpeg_bin, "-y",
         "-f", "lavfi",
-        "-i", "color=c=0x1a1a2e:s=720x1280:d=3:r=30",
+        "-i", f"color=c={color_hex}:s=720x1280:d={duration}:r=30",
+        "-vf", f"drawtext=text='{safe_title}':fontcolor=white:fontsize=36:x=(w-text_w)/2:y=(h-text_h)/2",
         "-c:v", "libx264",
         "-pix_fmt", "yuv420p",
         output_path
@@ -141,7 +273,6 @@ async def _mock_generate_video() -> str:
         proc = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
         await proc.communicate()
         if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
-            logger.info(f"Synthetic mock video generated successfully: {output_path}")
             return output_path
     except Exception as e:
         logger.warning(f"Failed to generate synthetic mock MP4 with ffmpeg: {e}")
@@ -149,3 +280,16 @@ async def _mock_generate_video() -> str:
     with open(output_path, 'wb') as f:
         f.write(b"mock_video_data")
     return output_path
+
+async def _mock_generate_multi_clips(count: int = 3, scenes: list[str] = None) -> list[str]:
+    """Generates a list of distinct mock clips for offline and zero-cost testing."""
+    colors = ["0x1e1b4b", "0x0f172a", "0x064e3b", "0x3b0764"]
+    clips = []
+    num_scenes = len(scenes) if scenes else count
+    for i in range(num_scenes):
+        c = colors[i % len(colors)]
+        title = scenes[i] if scenes and i < len(scenes) else f"Scene {i+1}"
+        clip = await _mock_generate_video(color_hex=c, duration=5, scene_title=title)
+        clips.append(clip)
+    return clips
+

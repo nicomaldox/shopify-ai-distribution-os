@@ -19,18 +19,26 @@ async def generate_script_node(state: AgentState) -> Dict[str, Any]:
     structured_llm = llm.with_structured_output(DirectorSpec)
     
     prompt = (
-        f"You are an elite TikTok/Reels creative director. "
-        f"Create a high-converting short video script for the product: {state['product_title']} "
-        f"(Price: {state['product_price']}). "
-        f"You MUST output strictly matching the DirectorSpec schema. "
-        f"You MUST include '#Ad' or '#Sponsored' in the ad_disclosures."
+        f"You are an elite TikTok/Reels creative director producing a viral UGC beauty and skincare video. "
+        f"Target Product: {state['product_title']} (Price: {state['product_price']}). Focus on physical product characteristics such as texture, serum droplets, creamy lather, skin-feel, and authentic daily skincare routines without making prohibited medical claims.\n\n"
+        f"STRICT DURATION AND SCENE REQUIREMENTS (MAX 6 SCENES):\n"
+        f"1. Total video length MUST be 20 to 24 seconds, divided into 4 to 6 scenes (fast pacing):\n"
+        f"   - Scene 1 (0-3s): The Hook (medium_closeup). High retention line. Product is NOT shown (product_visible: false).\n"
+        f"   - Scene 2 (4-8s): Core Benefit (product_closeup). Packshot/texture (product_visible: true).\n"
+        f"   - Scenes 3-5 (9-19s): Experience/Demonstration (macro/b-roll). Realistic usage (3-5s per scene).\n"
+        f"   - Scene 6 (20-24s): Call to Action. End-card (link_required: true).\n"
+        f"2. pacing_notes MUST contain MAXIMUM 6 items (at most 6 scenes, minimum 4 scenes).\n"
+        f"   Format each note as: 'Scene X (Ys-Zs): [Visual Camera & Action Prompt]'.\n"
+        f"3. visual_hook MUST be a vivid visual motion description for Scene 1 (burned as text overlay for 0-3s).\n"
+        f"4. narration_text MUST be punchy and concise, strictly between 45 and 65 words (~18 to 22 seconds spoken duration).\n"
+        f"5. ad_disclosures MUST include '#Ad' or '#Sponsored'."
     )
     
-    # We pass include_raw=True (if supported) or just rely on response_metadata for token usage
-    # Actually, with_structured_output abstracts token usage in some versions.
-    # To reliably get token usage, we can bind the tool manually or just use the base invoke.
-    # For PoC, we will extract it if available, or fallback to length estimation.
     response = await structured_llm.ainvoke([HumanMessage(content=prompt)])
+    
+    # Enforce strict maximum of 6 scenes
+    if response and hasattr(response, "pacing_notes") and response.pacing_notes:
+        response.pacing_notes = response.pacing_notes[:6]
     
     # Basic token estimation if usage_metadata is stripped by with_structured_output
     estimated_tokens = int(len(str(response)) / 3) + 150 
@@ -83,6 +91,14 @@ async def telemetry_logger_node(state: AgentState) -> Dict[str, Any]:
     estimated_cost_usd = (total_tokens / 1000.0) * 0.005
     
     try:
+        import uuid
+        creator_id_val = None
+        if state.get("creator_id"):
+            try:
+                creator_id_val = uuid.UUID(str(state["creator_id"]))
+            except (ValueError, AttributeError):
+                creator_id_val = None
+
         async for db in get_db_session():
             stmt = text("""
                 INSERT INTO ai_generation_logs 
@@ -92,7 +108,7 @@ async def telemetry_logger_node(state: AgentState) -> Dict[str, Any]:
             """)
             await db.execute(stmt, {
                 "trace_id": state["trace_id"],
-                "creator_id": state["creator_id"] if state["creator_id"] else None,
+                "creator_id": creator_id_val,
                 "product_id": state["product_id"],
                 "total_tokens": total_tokens,
                 "estimated_cost_usd": estimated_cost_usd,

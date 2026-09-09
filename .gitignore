@@ -2,10 +2,7 @@
 # Security & Secret Management (Strict Zero-Leakage Policy)
 # ==============================================================================
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
 *.env
 *.pem
 *.key
@@ -20,26 +17,80 @@ token.json
 client_secret*.json
 id_rsa*
 id_ed25519*
+*secret*
+*token*
 
 # ==============================================================================
-# Internal Development Specs, Guides, Handoffs & Reports (Strict Exclusion)
+# Internal Development Specs (SDD) & Architecture Documents
 # ==============================================================================
 specs/
-report.md
-DAY_5_EXECUTIVE_REPORT.*
-Report_*.md
-report_*.md
-*.pdf
+spec/
+sub-specs/
+*spec*.md
+requirements.md
+plan.md
+validation.md
+technical_doubt.md
+
+# ==============================================================================
+# Changelogs, Reports, User Guides, Demos & Handoffs (Strict Zero-Leakage)
+# ==============================================================================
+CHANGELOG.md
+CHANGELOG*.md
+changelog*.md
 USER_GUIDE.md
+*user_guide*.md
+*USER_GUIDE*.md
+E2E_WALKTHROUGH_GUIDE.md
+STEP_BY_STEP_E2E_WALKTHROUGH.md
+JSON_TO_FAL_AI_VIDEO_PIPELINE.md
+*walkthrough*.md
+*WALKTHROUGH*.md
 AGENT_HANDOFF.md
+*handoff*.md
+*HANDOFF*.md
 demo_script.md
-SKILL.md
+demo*.md
+*demo*
+report.md
+report*.md
+REPORT*.md
+*report*
+DAY_5_EXECUTIVE_REPORT.*
+*.pdf
+
+# ==============================================================================
+# Internal Scripts & Automation (Strict Zero-Leakage)
+# ==============================================================================
+scripts/
+*.ps1
+
+# ==============================================================================
+# Agent Guidelines, Customizations & Skills
+# ==============================================================================
 AGENTS.md
+agents*.md
+SKILL.md
 .agent/
 .agents/
 .markdown-collab/
 *.tmp
 *.bak
+
+# ==============================================================================
+# Media, Videos, Audio & Generated Assets
+# ==============================================================================
+media/
+uploads/
+generated_media/
+temp_media/
+*.mp4
+*.mp3
+*.wav
+*.webm
+*.mov
+*.avi
+*.m4a
 
 # ==============================================================================
 # Python Runtime & Dependencies
@@ -107,9 +158,6 @@ out/
 postgres_data/
 valkey_data/
 redis_data/
-uploads/
-generated_media/
-temp_media/
 
 # ==============================================================================
 # OS & IDE Metadata

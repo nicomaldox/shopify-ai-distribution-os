@@ -4,8 +4,12 @@ import logging
 from openai import AsyncOpenAI
 import tempfile
 import asyncio
+import shutil
 
 logger = logging.getLogger(__name__)
+
+def get_ffmpeg_binary() -> str:
+    return shutil.which("ffmpeg") or shutil.which("ffmpeg.exe") or "ffmpeg"
 
 async def generate_audio(narration_text: str) -> str:
     """
@@ -55,8 +59,9 @@ async def _mock_generate_audio() -> str:
     """Generates a valid 3-second silent MP3 audio file using ffmpeg for offline testing."""
     temp_dir = tempfile.gettempdir()
     output_path = os.path.join(temp_dir, f"audio_mock_{uuid.uuid4().hex}.mp3")
+    ffmpeg_bin = get_ffmpeg_binary()
     cmd = [
-        "ffmpeg", "-y",
+        ffmpeg_bin, "-y",
         "-f", "lavfi",
         "-i", "anullsrc=r=44100:cl=stereo",
         "-t", "3",

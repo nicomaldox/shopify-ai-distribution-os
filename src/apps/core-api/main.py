@@ -5,6 +5,7 @@ load_dotenv()
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 import uvicorn
 from routers import webhooks, redirects, ai, video_jobs, frontend_api
 from services.scheduler import start_scheduler, stop_scheduler
@@ -31,6 +32,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Ensure media directory exists and mount static route for generated video assets
+media_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../media/videos"))
+os.makedirs(media_dir, exist_ok=True)
+app.mount("/static/videos", StaticFiles(directory=media_dir), name="static_videos")
 
 app.include_router(webhooks.router)
 app.include_router(redirects.router)

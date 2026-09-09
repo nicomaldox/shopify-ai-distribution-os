@@ -21,7 +21,7 @@ async def api_generate_script(
     db: AsyncSession = Depends(get_db_session)
 ):
     """
-    Synchronous endpoint for n8n to request a new AI-generated TikTok script.
+    Synchronous endpoint for n8n or admin to request a new AI-generated TikTok script.
     """
     # 1. Fetch product details
     stmt = text("SELECT title, price FROM products WHERE product_id = :product_id")

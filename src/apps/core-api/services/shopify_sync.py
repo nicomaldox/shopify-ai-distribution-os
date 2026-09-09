@@ -7,6 +7,8 @@ from sqlalchemy import text
 from services.attribution import resolve_order_attribution
 from services.ledger import record_commission_earn, record_refund_reversal
 
+from dotenv import load_dotenv
+
 logger = logging.getLogger(__name__)
 
 SHOPIFY_SHOP_DOMAIN = os.getenv("SHOPIFY_SHOP_DOMAIN", "0efjx4-fp.myshopify.com")
@@ -17,6 +19,7 @@ async def fetch_shopify_orders(limit: int = 50) -> list[dict]:
     Fetches recent orders directly from Shopify Admin REST API.
     Does not require any inbound webhook, domain, or public tunnel.
     """
+    load_dotenv(override=True)
     token = os.getenv("SHOPIFY_ADMIN_API_ACCESS_TOKEN", SHOPIFY_ADMIN_API_ACCESS_TOKEN).strip()
     shop = os.getenv("SHOPIFY_SHOP_DOMAIN", SHOPIFY_SHOP_DOMAIN).strip()
     
