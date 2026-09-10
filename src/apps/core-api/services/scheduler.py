@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from database.connection import AsyncSessionLocal
-from services.shopify_sync import sync_shopify_orders
+from services.shopify_sync import sync_shopify_orders, sync_shopify_products
 
 logger = logging.getLogger(__name__)
 
@@ -11,11 +11,15 @@ _stop_event = asyncio.Event()
 SYNC_INTERVAL_SECONDS = 30
 
 async def _polling_loop():
-    """Background loop that synchronizes Shopify orders every 30 seconds."""
-    logger.info(f"Shopify Order Sync background daemon started (polling every {SYNC_INTERVAL_SECONDS}s).")
+    """Background loop that synchronizes Shopify products and orders every 30 seconds."""
+    logger.info(f"Shopify Sync background daemon started (polling every {SYNC_INTERVAL_SECONDS}s).")
     while not _stop_event.is_set():
         try:
             async with AsyncSessionLocal() as db:
+                prod_result = await sync_shopify_products(db, limit=50)
+                if prod_result.get("synced_count", 0) > 0:
+                    logger.info(f"Auto-Sync Products: {prod_result.get('synced_count')} products mirrored.")
+
                 result = await sync_shopify_orders(db, limit=50)
                 if result.get("new_orders", 0) > 0 or result.get("refunds_processed", 0) > 0:
                     logger.info(

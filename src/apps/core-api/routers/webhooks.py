@@ -193,6 +193,35 @@ async def shopify_webhook_receiver(
             raise HTTPException(status_code=500, detail="Internal processing error")
     return {"status": "ok", "message": "Webhook processed"}
 
+@router.post("/seed-products")
+async def api_seed_blueprint_products():
+    """
+    Seeds the 3 D2C Skincare blueprint products directly to Shopify Admin REST API.
+    Idempotent: Skips products that already exist with the same title.
+    Leaves any existing dummy products (such as 'test2') completely intact.
+    """
+    from services.shopify_product_seeder import seed_blueprint_products_to_shopify
+    try:
+        result = await seed_blueprint_products_to_shopify()
+        return result
+    except Exception as e:
+        logger.error(f"Error seeding blueprint products to Shopify: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/sync-products")
+async def api_trigger_shopify_products_sync(
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db_session)
+):
+    """
+    Manual 'Sync Products Now' trigger.
+    Pulls active products and their variants/images from Shopify Admin API,
+    mirroring them to the local PostgreSQL products table.
+    """
+    from services.shopify_sync import sync_shopify_products
+    result = await sync_shopify_products(db, limit=limit)
+    return result
+
 @router.post("/sync")
 async def api_trigger_shopify_sync(
     limit: int = 50,
@@ -200,11 +229,11 @@ async def api_trigger_shopify_sync(
 ):
     """
     Manual 'Sync Now' trigger.
-    Pulls recent orders and refunds directly from Shopify Admin API,
+    Pulls recent active products, orders and refunds directly from Shopify Admin API,
     resolving attribution and updating the append-only ledger immediately.
     """
-    from services.shopify_sync import sync_shopify_orders
-    result = await sync_shopify_orders(db, limit=limit)
+    from services.shopify_sync import sync_shopify_store
+    result = await sync_shopify_store(db, limit=limit)
     return result
 
 @router.post("/simulate-order")

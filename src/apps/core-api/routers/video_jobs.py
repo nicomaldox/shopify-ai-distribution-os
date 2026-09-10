@@ -88,15 +88,16 @@ async def run_rendering_pipeline(job_id: str, spec: DirectorSpec, callback_url: 
                 logger.info(f"Callback sent for job {job_id}")
                 
     except Exception as e:
-        logger.error(f"Job {job_id} failed: {e}")
-        await update_job(job_id, status="FAILED", error_message=str(e))
+        error_msg = str(e).strip() or f"{type(e).__name__}: {repr(e)}"
+        logger.error(f"Job {job_id} failed: {error_msg}")
+        await update_job(job_id, status="FAILED", error_message=error_msg)
         if callback_url:
             try:
                 async with httpx.AsyncClient() as client:
                     await client.post(callback_url, json={
                         "job_id": job_id,
                         "status": "FAILED",
-                        "error": str(e)
+                        "error": error_msg
                     })
             except Exception as cb_err:
                 logger.error(f"Failed to send failure callback for job {job_id}: {cb_err}")

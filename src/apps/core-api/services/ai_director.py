@@ -19,26 +19,37 @@ async def generate_script_node(state: AgentState) -> Dict[str, Any]:
     structured_llm = llm.with_structured_output(DirectorSpec)
     
     prompt = (
-        f"You are an elite TikTok/Reels creative director producing a viral UGC beauty and skincare video. "
-        f"Target Product: {state['product_title']} (Price: {state['product_price']}). Focus on physical product characteristics such as texture, serum droplets, creamy lather, skin-feel, and authentic daily skincare routines without making prohibited medical claims.\n\n"
-        f"STRICT DURATION AND SCENE REQUIREMENTS (MAX 6 SCENES):\n"
-        f"1. Total video length MUST be 20 to 24 seconds, divided into 4 to 6 scenes (fast pacing):\n"
-        f"   - Scene 1 (0-3s): The Hook (medium_closeup). High retention line. Product is NOT shown (product_visible: false).\n"
-        f"   - Scene 2 (4-8s): Core Benefit (product_closeup). Packshot/texture (product_visible: true).\n"
-        f"   - Scenes 3-5 (9-19s): Experience/Demonstration (macro/b-roll). Realistic usage (3-5s per scene).\n"
-        f"   - Scene 6 (20-24s): Call to Action. End-card (link_required: true).\n"
-        f"2. pacing_notes MUST contain MAXIMUM 6 items (at most 6 scenes, minimum 4 scenes).\n"
-        f"   Format each note as: 'Scene X (Ys-Zs): [Visual Camera & Action Prompt]'.\n"
-        f"3. visual_hook MUST be a vivid visual motion description for Scene 1 (burned as text overlay for 0-3s).\n"
-        f"4. narration_text MUST be punchy and concise, strictly between 45 and 65 words (~18 to 22 seconds spoken duration).\n"
-        f"5. ad_disclosures MUST include '#Ad' or '#Sponsored'."
+        f"You are an elite TikTok/Reels creative director and professional AI video prompt engineer specializing in Wan 2.1 video diffusion models. "
+        f"Target Product: {state['product_title']} (Price: {state['product_price']}). Focus on tangible physical characteristics such as texture, serum droplets, creamy lather, skin-feel, and authentic daily skincare routines without making prohibited medical claims.\n\n"
+        f"PROFESSIONAL VIDEO DIFFUSION PROMPT REQUIREMENTS (4 to 6 SCENES):\n"
+        f"1. Total video duration: 20 to 24 seconds across 4 to 6 scenes.\n"
+        f"2. pacing_notes MUST contain 4 to 6 standalone, cinematic visual diffusion prompts (one per scene):\n"
+        f"   - DO NOT USE BRACKETS OR METADATA: Do NOT write '[Medium Close-up]' or '(0s-3s)' or 'Scene 1:'. Write pure, rich descriptive natural language.\n"
+        f"   - Each scene prompt MUST explicitly define:\n"
+        f"     * SUBJECT & ACTION: Tangible subject and realistic physical motion (e.g. 'A manicured hand gently presses the dropper, releasing a single golden serum droplet that falls in smooth slow motion').\n"
+        f"     * CAMERA MOTION: Camera movement (e.g. 'Slow macro push-in', 'Gentle steady tracking pan', 'Fixed high-angle beauty shot').\n"
+        f"     * LIGHTING & MOOD: Environmental lighting (e.g. 'Soft morning sunlight from a nearby window, warm diffused glow, shallow depth of field with creamy f/1.8 bokeh').\n"
+        f"     * VISUAL TEXTURE: High-fidelity details (e.g. 'Crisp glass bottle reflections, natural skin pores, glossy liquid shimmer, photorealistic 4k UGC aesthetic').\n"
+        f"   - Scene Roles:\n"
+        f"     * Scene 1 (The Hook): Pure aesthetic motion to stop scrolling (lifestyle, refreshing morning mist, or soft silk texture).\n"
+        f"     * Scene 2 (Product Hero): Anchored to the product package, showing the bottle/tube in an elegant clean setting.\n"
+        f"     * Scene 3-4 (Texture & Application): Close-up of formulation (droplets, lathering foam, or smooth application onto skin).\n"
+        f"     * Scene 5 (Radiant Result): Fresh, glowing healthy skin in natural daylight.\n"
+        f"     * Scene 6 (Call-to-Action Packshot): Elegant hero product presentation with gentle lighting shimmer.\n"
+        f"3. visual_hook: A vivid visual motion description of the opening attention-grabber.\n"
+        f"4. narration_text: Punchy voiceover script, strictly between 45 and 65 words (~18 to 22 seconds spoken duration).\n"
+        f"5. ad_disclosures: MUST include '#Ad', '#Sponsored', or '#AffiliateLink'."
     )
     
     response = await structured_llm.ainvoke([HumanMessage(content=prompt)])
     
-    # Enforce strict maximum of 6 scenes
+    # Enforce strict maximum of 6 scenes and clean any stray brackets
     if response and hasattr(response, "pacing_notes") and response.pacing_notes:
-        response.pacing_notes = response.pacing_notes[:6]
+        cleaned_notes = []
+        for note in response.pacing_notes[:6]:
+            cleaned = note.replace("[", "").replace("]", "").strip()
+            cleaned_notes.append(cleaned)
+        response.pacing_notes = cleaned_notes
     
     # Basic token estimation if usage_metadata is stripped by with_structured_output
     estimated_tokens = int(len(str(response)) / 3) + 150 

@@ -7,6 +7,7 @@ import ipaddress
 import httpx
 import asyncio
 import shutil
+import subprocess
 import fal_client
 
 logger = logging.getLogger(__name__)
@@ -59,8 +60,8 @@ async def _render_single_fal_clip(prompt: str, num_frames: int = 81) -> str:
     if not fal_key:
         raise ValueError("FAL_KEY is required for cloud rendering.")
     
-    # We will use the officially recommended endpoint
-    endpoint = "fal-ai/wan/v2.1/text-to-video"
+    # Use matching Wan 2.1 T2V endpoint
+    endpoint = "fal-ai/wan-t2v"
     
     try:
         logger.info(f"Submitting Fal.ai T2V job for prompt: {prompt[:30]}... (frames: {num_frames})")
@@ -70,8 +71,7 @@ async def _render_single_fal_clip(prompt: str, num_frames: int = 81) -> str:
             arguments={
                 "prompt": prompt,
                 "aspect_ratio": "9:16",
-                "resolution": "480p",  # 480p to save costs
-                "num_frames": num_frames
+                "resolution": "480p"  # 480p to save costs
             }
         )
         
@@ -106,7 +106,7 @@ async def _render_single_fal_clip(prompt: str, num_frames: int = 81) -> str:
         logger.error(f"Fal.ai T2V rendering failed: {e}")
         raise e
 
-async def _render_single_fal_i2v_clip(prompt: str, image_url: str, num_frames: int = 120) -> str:
+async def _render_single_fal_i2v_clip(prompt: str, image_url: str, num_frames: int = 81) -> str:
     """Helper to dispatch, poll, and download a single image-to-video clip from Fal.ai using fal_client."""
     fal_key = os.environ.get("FAL_KEY")
     if not fal_key:
@@ -213,27 +213,38 @@ async def generate_multi_clip_video(scenes: list[str], product_image_url: str = 
         return await _mock_generate_multi_clips(scenes=scenes)
         
     def _clean_prompt(raw: str) -> str:
-        # Strip timing prefixes like 'Scene 1 (0-3s): ' or '(0-3s)' to give clean visual prompts
+        # Strip timing prefixes like 'Scene 1 (0-3s): ' or '(0-3s)' and any bracketed wrappers
         p = raw.strip()
         if "):" in p:
             p = p.split("):", 1)[1].strip()
         elif ") " in p:
             p = p.split(") ", 1)[1].strip()
-        return f"Vertical 9:16 cinematic video, TikTok UGC style: {p}"
+        elif ":" in p and any(p.lower().startswith(f"scene {i}") for i in range(1, 10)):
+            p = p.split(":", 1)[1].strip()
+        # Clean out brackets and quotes
+        p = p.replace("[", "").replace("]", "").replace('"', '').strip()
+        return f"Cinematic 9:16 vertical video, photorealistic UGC beauty style, natural lighting, high fidelity 4k texture: {p}"
 
     clean_prompts = [_clean_prompt(s) for s in scenes]
+
+    # Concurrency limit for Fal.ai rendering tasks (4 concurrent cuts rendering time down to ~60-90s)
+    sem = asyncio.Semaphore(4)
+
+    async def _throttled_call(fn, *args, **kwargs):
+        async with sem:
+            return await fn(*args, **kwargs)
 
     tasks = []
     for idx, prompt in enumerate(clean_prompts):
         if idx == 0 or not product_image_url:
-            # Scene 1 (Hook) is T2V, 3s (72 frames)
-            tasks.append(_render_single_fal_clip(prompt, num_frames=72))
+            # Scene 1 (Hook) is T2V, 81 frames (~5s at 16fps)
+            tasks.append(_throttled_call(_render_single_fal_clip, prompt, num_frames=81))
         elif idx == 1:
-            # Scene 2 (Core Benefit) is I2V, 5s (120 frames)
-            tasks.append(_render_single_fal_i2v_clip(prompt, product_image_url, num_frames=120))
+            # Scene 2 (Core Benefit) is I2V, 81 frames (~5s at 16fps)
+            tasks.append(_throttled_call(_render_single_fal_i2v_clip, prompt, product_image_url, num_frames=81))
         else:
-            # Scene 3-6 (Experience) is I2V, 4s (96 frames)
-            tasks.append(_render_single_fal_i2v_clip(prompt, product_image_url, num_frames=96))
+            # Scene 3-6 (Experience) is I2V, 81 frames (~5s at 16fps)
+            tasks.append(_throttled_call(_render_single_fal_i2v_clip, prompt, product_image_url, num_frames=81))
             
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -270,10 +281,15 @@ async def _mock_generate_video(color_hex: str = "0x1a1a2e", duration: int = 5, s
         output_path
     ]
     try:
-        proc = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-        await proc.communicate()
+        def _run_ffmpeg():
+            return subprocess.run(cmd, capture_output=True)
+
+        proc = await asyncio.to_thread(_run_ffmpeg)
         if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
             return output_path
+        else:
+            stderr_str = proc.stderr.decode('utf-8', errors='replace')
+            logger.warning(f"FFmpeg synthetic mock generation non-zero exit: {stderr_str}")
     except Exception as e:
         logger.warning(f"Failed to generate synthetic mock MP4 with ffmpeg: {e}")
         

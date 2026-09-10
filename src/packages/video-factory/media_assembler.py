@@ -4,11 +4,20 @@ import logging
 import asyncio
 import tempfile
 import shutil
+import subprocess
+import textwrap
 
 logger = logging.getLogger(__name__)
 
 def get_ffmpeg_binary() -> str:
     return shutil.which("ffmpeg") or shutil.which("ffmpeg.exe") or "ffmpeg"
+
+def _format_hook_text(text: str, max_chars_per_line: int = 24) -> str:
+    """Wraps text into lines with safe margins so it stays centered and never touches video contours."""
+    # Use typographical quote to avoid breaking FFmpeg filter syntax
+    clean = text.replace("'", "’").replace(":", " -").replace("%", "\\%")
+    wrapped = textwrap.fill(clean, width=max_chars_per_line)
+    return wrapped
 
 async def assemble_media(video_path, audio_path: str, visual_hook: str = None, output_dir: str = None) -> str:
     """
@@ -33,6 +42,13 @@ async def assemble_media(video_path, audio_path: str, visual_hook: str = None, o
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, f"final_{uuid.uuid4().hex}.mp4")
     
+    # Mandatory FTC ad disclosure badge burned in for regulatory compliance
+    disclosure_text = "#Ad #Sponsored #AffiliateLink"
+    drawtext_disclosure = (
+        f"drawtext=text='{disclosure_text}':font='Arial':fontcolor=white:fontsize=18:"
+        f"x=(w-text_w)/2:y=h-65:box=1:boxcolor=black@0.65:boxborderw=8"
+    )
+
     # Check if multi-clip list is provided
     if isinstance(video_path, list) and len(video_path) > 1:
         logger.info(f"Assembling multi-clip stitched media: {len(video_path)} clips + {audio_path} -> {output_path}")
@@ -42,24 +58,17 @@ async def assemble_media(video_path, audio_path: str, visual_hook: str = None, o
         audio_idx = len(video_path)
         cmd.extend(["-i", audio_path])
 
-        concat_inputs = "".join([f"[{i}:v]" for i in range(len(video_path))])
+        # Standardize each clip to 720x1280 30fps before concatenating to avoid parameter mismatches
+        scale_filters = []
+        concat_inputs = []
+        for i in range(len(video_path)):
+            scale_filters.append(f"[{i}:v]scale=720:1280:force_original_aspect_ratio=decrease,pad=720:1280:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30[v{i}]")
+            concat_inputs.append(f"[v{i}]")
+        scale_prefix = ";".join(scale_filters) + ";"
+        concat_in_str = "".join(concat_inputs)
         
-        # Mandatory disclosures burned in for compliance
-        disclosure_text = "#Ad #Sponsored 合作內容 含分潤連結"
-        drawtext_disclosure = f"drawtext=text='{disclosure_text}':fontcolor=white:fontsize=24:x=(w-text_w)/2:y=h-50"
-        
-        if visual_hook:
-            safe_text = visual_hook.replace("'", "").replace(":", "")
-            filter_str = (
-                f"{concat_inputs}concat=n={len(video_path)}:v=1:a=0[vcat];"
-                f"[vcat]drawtext=text='{safe_text}':fontcolor=white:fontsize=48:"
-                f"x=(w-text_w)/2:y=(h-text_h)/2:enable='between(t,0,3)'[vtext1];"
-                f"[vtext1]{drawtext_disclosure}[vout]"
-            )
-            out_label = "[vout]"
-        else:
-            filter_str = f"{concat_inputs}concat=n={len(video_path)}:v=1:a=0[vcat];[vcat]{drawtext_disclosure}[vout]"
-            out_label = "[vout]"
+        filter_str = f"{scale_prefix}{concat_in_str}concat=n={len(video_path)}:v=1:a=0[vcat];[vcat]{drawtext_disclosure}[vout]"
+        out_label = "[vout]"
 
         cmd.extend([
             "-filter_complex", filter_str,
@@ -74,47 +83,30 @@ async def assemble_media(video_path, audio_path: str, visual_hook: str = None, o
         single_path = video_path[0] if isinstance(video_path, list) else video_path
         logger.info(f"Assembling media with loop: {single_path} + {audio_path} -> {output_path}")
         
-        disclosure_text = "#Ad #Sponsored 合作內容 含分潤連結"
-        drawtext_disclosure = f"drawtext=text='{disclosure_text}':fontcolor=white:fontsize=24:x=(w-text_w)/2:y=h-50"
-        
-        if visual_hook:
-            safe_text = visual_hook.replace("'", "").replace(":", "")
-            vf_arg = f"drawtext=text='{safe_text}':fontcolor=white:fontsize=48:x=(w-text_w)/2:y=(h-text_h)/2:enable='between(t,0,3)',{drawtext_disclosure}"
-            cmd = [
-                ffmpeg_bin, "-y", 
-                "-stream_loop", "-1",
-                "-i", single_path, 
-                "-i", audio_path, 
-                "-vf", vf_arg,
-                "-c:v", "libx264",
-                "-c:a", "aac",
-                "-shortest", 
-                output_path
-            ]
-        else:
-            cmd = [
-                ffmpeg_bin, "-y", 
-                "-stream_loop", "-1",
-                "-i", single_path,
-                "-i", audio_path,
-                "-vf", drawtext_disclosure,
-                "-c:v", "libx264",
-                "-c:a", "aac",
-                "-shortest", 
-                output_path
-            ]
+        cmd = [
+            ffmpeg_bin, "-y", 
+            "-stream_loop", "-1",
+            "-i", single_path, 
+            "-i", audio_path, 
+            "-vf", drawtext_disclosure,
+            "-c:v", "libx264",
+            "-c:a", "aac",
+            "-shortest", 
+            output_path
+        ]
     
     try:
-        process = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-        
-        stdout, stderr = await process.communicate()
+        def _run_ffmpeg():
+            return subprocess.run(
+                cmd,
+                capture_output=True
+            )
+
+        process = await asyncio.to_thread(_run_ffmpeg)
         
         if process.returncode != 0:
-            logger.warning(f"FFmpeg failed (Expected if using mock files). Stderr: {stderr.decode()}")
+            stderr_str = process.stderr.decode('utf-8', errors='replace')
+            logger.warning(f"FFmpeg failed (Expected if using mock files). Stderr: {stderr_str}")
             # If ffmpeg fails, we fallback to returning a mock file for PoC continuity
             with open(output_path, 'wb') as f:
                 f.write(b"mock_final_video_with_audio")

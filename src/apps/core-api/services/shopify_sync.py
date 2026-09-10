@@ -210,3 +210,110 @@ async def sync_shopify_orders(db: AsyncSession, limit: int = 50) -> dict:
         "refunds_processed": refunds_processed_count,
         "details": details
     }
+
+async def fetch_shopify_products(limit: int = 50) -> list[dict]:
+    """
+    Fetches active products directly from Shopify Admin REST API.
+    """
+    load_dotenv(override=True)
+    token = os.getenv("SHOPIFY_ADMIN_API_ACCESS_TOKEN", SHOPIFY_ADMIN_API_ACCESS_TOKEN).strip()
+    shop = os.getenv("SHOPIFY_SHOP_DOMAIN", SHOPIFY_SHOP_DOMAIN).strip()
+    
+    if not token or not shop:
+        logger.warning("Shopify credentials not configured; skipping product sync.")
+        return []
+
+    url = f"https://{shop}/admin/api/2024-01/products.json"
+    headers = {
+        "X-Shopify-Access-Token": token,
+        "Content-Type": "application/json"
+    }
+    params = {
+        "limit": limit
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.get(url, headers=headers, params=params)
+            if response.status_code == 200:
+                data = response.json()
+                return data.get("products", [])
+            else:
+                logger.error(f"Shopify Admin API product error: {response.status_code} - {response.text}")
+                return []
+    except Exception as e:
+        logger.error(f"Failed to fetch products from Shopify Admin API: {e}")
+        return []
+
+async def sync_shopify_products(db: AsyncSession, limit: int = 50) -> dict:
+    """
+    Synchronizes active Shopify products directly into local PostgreSQL 'products' table.
+    Ensures real Shopify product IDs, titles, variant pricing, and Shopify CDN image URLs
+    are updated and available for Admin Studio and Creator operations.
+    """
+    raw_products = await fetch_shopify_products(limit=limit)
+    if not raw_products:
+        return {
+            "status": "COMPLETED",
+            "message": "No products fetched or credentials missing",
+            "synced_count": 0,
+            "products": []
+        }
+
+    synced_count = 0
+    synced_items = []
+
+    for p in raw_products:
+        product_id = str(p.get("id"))
+        title = p.get("title", "").strip()
+        variants = p.get("variants", [])
+        price = str(variants[0].get("price", "0.0")) if variants else "0.0"
+        images = p.get("images", [])
+        image_url = images[0].get("src", "") if images else ""
+
+        try:
+            stmt = text("""
+                INSERT INTO products (product_id, title, price, image_url, updated_at)
+                VALUES (:product_id, :title, :price, :image_url, CURRENT_TIMESTAMP)
+                ON CONFLICT (product_id) DO UPDATE SET
+                    title = EXCLUDED.title,
+                    price = EXCLUDED.price,
+                    image_url = EXCLUDED.image_url,
+                    updated_at = CURRENT_TIMESTAMP
+            """)
+            await db.execute(stmt, {
+                "product_id": product_id,
+                "title": title,
+                "price": price,
+                "image_url": image_url
+            })
+            await db.commit()
+            synced_count += 1
+            synced_items.append({
+                "product_id": product_id,
+                "title": title,
+                "price": price,
+                "image_url": image_url
+            })
+        except Exception as e:
+            await db.rollback()
+            logger.error(f"Failed to upsert product {product_id} ({title}): {e}")
+
+    return {
+        "status": "SUCCESS",
+        "synced_count": synced_count,
+        "products": synced_items
+    }
+
+async def sync_shopify_store(db: AsyncSession, limit: int = 50) -> dict:
+    """
+    Unified synchronization routine: pulls and synchronizes both
+    active products and transactional orders/refunds from Shopify.
+    """
+    products_result = await sync_shopify_products(db, limit=limit)
+    orders_result = await sync_shopify_orders(db, limit=limit)
+    return {
+        "status": "SUCCESS",
+        "products_sync": products_result,
+        "orders_sync": orders_result
+    }

@@ -5,6 +5,7 @@ from openai import AsyncOpenAI
 import tempfile
 import asyncio
 import shutil
+import subprocess
 
 logger = logging.getLogger(__name__)
 
@@ -69,8 +70,10 @@ async def _mock_generate_audio() -> str:
         output_path
     ]
     try:
-        proc = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-        await proc.communicate()
+        def _run_ffmpeg():
+            return subprocess.run(cmd, capture_output=True)
+
+        proc = await asyncio.to_thread(_run_ffmpeg)
         if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
             logger.info(f"Synthetic mock audio generated successfully: {output_path}")
             return output_path

@@ -61,13 +61,15 @@ flowchart LR
 
 ### 🎬 AI Content & Hybrid Video Factory
 * **AI Director Agent:** Automated prompt pipeline generating high-converting 3-second hooks, 20-24 second scripts across 4-6 scenes, and compliant `#Ad` / `#Sponsored` disclosures.
-* **Anti-Hallucination Hybrid Video Rendering:** Scene 1 (Hook) renders via Wan 2.1 Text-to-Video, and Scenes 2-6 render via Wan-I2V grounded on real product photography to guarantee authentic packaging, serum droplets, and texture without AI hallucinations.
+* **Anti-Hallucination Hybrid Video Rendering:** Scene 1 (Hook) renders via Wan 2.1 Text-to-Video, and Scenes 2-6 render via Wan-I2V grounded on real product photography to guarantee authentic packaging, serum droplets, and texture without AI hallucinations. *(Note: Fal.ai is currently utilized as the most cost-effective solution to prove the architectural concept; advanced model tuning is slated for Phase 2)*.
 * **Dual Burned Overlays & Multi-Clip Stitching:** Assembles up to 6 scenes via FFmpeg `concat` filter with OpenAI TTS voiceover, burning a 3-second visual hook at center and permanent bottom ad disclosures (`#Ad #Sponsored 合作內容 含分潤連結`).
 * **Persistent Job Tracking & Local Streaming:** Render jobs are tracked in PostgreSQL (`video_render_jobs`) with polling via `GET /video-jobs/{job_id}` and streamed directly at `/static/videos/{filename}`.
 
 ### 🖥️ User Applications
 * **Creator Studio Web App:** Portal for creators to view daily tasks, preview/download AI videos and scripts, manage referral links/codes, and inspect live earnings.
 * **Company Admin Console:** Management interface for product catalog settings, configurable commission rates, live transaction ledger audits, and one-click "Sync Shopify Orders" button.
+
+> **Note:** The UI/UX across these dashboards is currently at a Functional PoC stage and is pending comprehensive refinement in Phase 2.
 
 ---
 
@@ -170,7 +172,7 @@ Run the full automated test suite covering all 5 core financial accounting scena
 ```powershell
 .\.venv\Scripts\pytest.exe -v
 ```
-**Result:** `37 passed in ~6.2s (100% pass rate across 12 test modules)`
+**Result:** `39 passed in ~9.0s (100% pass rate across 13 test modules)`
 
 ### Local Service Dashboard
 

@@ -11,22 +11,22 @@ APP_TIMEZONE = os.getenv("APP_TIMEZONE", "Asia/Taipei")
 
 DEFAULT_PRODUCTS = [
     {
-        "product_id": "prod_serum_001",
+        "product_id": "7769372393559",
         "title": "Luminous Hydrating Glow Serum (極光保濕超導精華液)",
         "price": 1280.0,
-        "image_url": "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=800&q=80"
+        "image_url": "https://cdn.shopify.com/s/files/1/0678/3962/3255/files/photo-1620916566398-39f1143ab7be.jpg?v=1788959705"
     },
     {
-        "product_id": "prod_cream_002",
+        "product_id": "7769372426327",
         "title": "Revitalizing Barrier Repair Cream (賦活屏障修護乳霜)",
         "price": 1580.0,
-        "image_url": "https://images.unsplash.com/photo-1608248597359-bb47265ea5b3?w=800&q=80"
+        "image_url": "https://cdn.shopify.com/s/files/1/0678/3962/3255/files/photo-1556228720-195a672e8a03.jpg?v=1788959767"
     },
     {
-        "product_id": "prod_oil_003",
+        "product_id": "7769372459095",
         "title": "Gentle Botanical Cleansing Oil (植萃舒緩深層潔顏油)",
         "price": 980.0,
-        "image_url": "https://images.unsplash.com/photo-1601049541289-9b1b7bbbfe19?w=800&q=80"
+        "image_url": "https://cdn.shopify.com/s/files/1/0678/3962/3255/files/photo-1601049541289-9b1b7bbbfe19.jpg?v=1788959709"
     }
 ]
 
